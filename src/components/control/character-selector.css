@@ -1,0 +1,106 @@
+@import '../../styles/colors.css';
+@import '../../styles/depth.css';
+@import '../../styles/metrics.css';
+@import '../../styles/typography.css';
+
+.character-selector {
+	position: relative;
+}
+
+.character-selector-trigger {
+	align-items: center;
+	background: linear-gradient(
+		to right,
+		var(--white-translucent),
+		var(--white-translucent)
+	);
+	border-radius: var(--corner-round);
+	border: 1px solid var(--light-gray-translucent);
+	color: var(--dark-gray);
+	cursor: pointer;
+	display: flex;
+	font: 100% var(--font-system);
+	gap: var(--grid-size);
+	height: var(--control-height);
+	padding: var(--grid-size);
+	transition: background-color 0.3s;
+	width: 100%;
+}
+
+.character-selector-trigger:hover:not(.character-selector-trigger--disabled) {
+	background: var(--light-gray-translucent);
+}
+
+.character-selector-trigger--disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+.character-selector-label {
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.character-selector-display {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.character-selector-arrow {
+	transition: transform 0.2s;
+}
+
+.character-selector-arrow--open {
+	transform: rotate(180deg);
+}
+
+.character-selector-dropdown {
+	background: var(--white);
+	border: 1px solid var(--light-gray-translucent);
+	border-radius: var(--corner-round);
+	box-shadow: var(--shadow-large);
+	display: flex;
+	flex-direction: column;
+	gap: calc(var(--grid-size) / 2);
+	max-height: 200px;
+	overflow-y: auto;
+	padding: var(--grid-size);
+	position: absolute;
+	top: 100%;
+	width: 100%;
+	z-index: 1000;
+}
+
+.character-selector-option {
+	align-items: center;
+	cursor: pointer;
+	display: flex;
+	gap: var(--grid-size);
+	padding: calc(var(--grid-size) / 2);
+}
+
+.character-selector-option:hover:not(.character-selector-option--disabled) {
+	background: var(--light-gray-translucent);
+	border-radius: var(--corner-round);
+}
+
+.character-selector-option--disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+.character-selector-option input[type='checkbox'] {
+	accent-color: var(--blue);
+	cursor: pointer;
+}
+
+.character-selector-option--disabled input[type='checkbox'] {
+	cursor: not-allowed;
+}
+
+.character-selector-option-label {
+	color: var(--dark-gray);
+	font: 100% var(--font-system);
+}

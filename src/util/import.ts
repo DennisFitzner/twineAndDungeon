@@ -124,12 +124,47 @@ function domToObject(storyEl: Element): ImportedStory {
 }
 
 /**
+ * Validates that all character references in passage tags are valid.
+ */
+function validateCharacterReferences(
+	story: Story,
+	characters: Array<{id: string; name: string}>
+) {
+	const validCharacterIds = new Set(characters.map(c => c.id));
+	const invalidReferences: string[] = [];
+
+	story.passages.forEach(passage => {
+		passage.tags.forEach(tag => {
+			// Check for [characters: id1, id2, id3] format
+			const characterMatch = tag.match(/^characters:\s*(.+)$/);
+			if (characterMatch) {
+				const referencedIds = characterMatch[1].split(',').map(id => id.trim());
+				referencedIds.forEach(id => {
+					if (!validCharacterIds.has(id)) {
+						invalidReferences.push(
+							`Passage "${passage.name}" references unknown character "${id}"`
+						);
+					}
+				});
+			}
+		});
+	});
+
+	if (invalidReferences.length > 0) {
+		console.error('Character validation errors:', invalidReferences);
+		// For now, just log errors. In a real implementation, you might want to show a dialog
+		// or throw an error depending on your requirements.
+	}
+}
+
+/**
  * Imports stories from HTML. If there are any missing attributes in the HTML,
  * defaults will be applied.
  */
 export function importStories(
 	html: string,
-	lastUpdateOverride?: Date
+	lastUpdateOverride?: Date,
+	characters?: Array<{id: string; name: string}>
 ): Story[] {
 	const nodes = document.createElement('div');
 
@@ -143,6 +178,11 @@ export function importStories(
 
 		const story: Story = defaults(importedStory, {id: uuid()}, storyDefaults());
 
+		// Add characters if provided
+		if (characters) {
+			story.characters = characters;
+		}
+
 		// Override the last update as requested.
 
 		if (lastUpdateOverride) {
@@ -155,6 +195,11 @@ export function importStories(
 		story.passages = story.passages.map(passage =>
 			defaults(passage, passageDefaults(), {story: story.id})
 		);
+
+		// Validate character references if characters are provided
+		if (characters) {
+			validateCharacterReferences(story, characters);
+		}
 
 		return story;
 	});

@@ -38,6 +38,12 @@ import {
 export interface StoryFile {
 	htmlSource: string;
 	mtime: Date;
+	characters?: Character[];
+}
+
+export interface Character {
+	id: string;
+	name: string;
 }
 
 /**
@@ -57,13 +63,31 @@ export async function loadStories() {
 				const folderStats = await stat(folderPath);
 				if (folderStats.isDirectory()) {
 					const htmlFilePath = join(folderPath, `${f}.html`);
+					const charactersFilePath = join(folderPath, 'characters.json');
 					const htmlStats = await stat(htmlFilePath);
 
 					if (!htmlStats.isDirectory()) {
-						result.push({
+						const storyFile: StoryFile = {
 							mtime: htmlStats.mtime,
 							htmlSource: await readFile(htmlFilePath, 'utf8')
-						});
+						};
+
+						// Try to load characters.json if it exists
+						try {
+							const charactersStats = await stat(charactersFilePath);
+							if (!charactersStats.isDirectory()) {
+								const charactersContent = await readFile(
+									charactersFilePath,
+									'utf8'
+								);
+								storyFile.characters = JSON.parse(charactersContent);
+							}
+						} catch (error) {
+							// characters.json doesn't exist or is invalid, that's okay
+							console.log(`No characters.json found for story ${f}`);
+						}
+
+						result.push(storyFile);
 						return fileWasTouched(htmlFilePath);
 					}
 				}

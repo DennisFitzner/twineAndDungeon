@@ -19,6 +19,7 @@ import {
 import {useUndoableStoriesContext} from '../../store/undoable-stories';
 import {Color} from '../../util/color';
 import {TagCardButton} from '../../components/tag/tag-card-button';
+import {CharacterSelector} from '../../components/control/character-selector';
 
 export interface PassageToolbarProps {
 	disabled?: boolean;
@@ -33,6 +34,19 @@ export const PassageToolbar: React.FC<PassageToolbarProps> = props => {
 	const {dispatch} = useUndoableStoriesContext();
 	const {t} = useTranslation();
 	const passageTags = storyPassageTags(story);
+
+	// Parse character tags from passage
+	const characterTag = passage.tags.find(tag => tag.startsWith('characters:'));
+	const selectedCharacterIds = characterTag
+		? characterTag
+				.replace('characters:', '')
+				.split(',')
+				.map(id => id.trim())
+				.filter(id => id)
+		: [];
+
+	// Get characters from story - this will be populated when characters.json is loaded
+	const characters = story.characters || [];
 
 	function handleAddTag(name: string) {
 		dispatch(addPassageTag(story, passage, name), t('undoChange.addTag'));
@@ -59,6 +73,21 @@ export const PassageToolbar: React.FC<PassageToolbarProps> = props => {
 		dispatch(updatePassage(story, passage, {height, width}));
 	}
 
+	function handleCharacterChange(characterIds: string[]) {
+		// Remove existing character tag
+		const otherTags = passage.tags.filter(
+			tag => !tag.startsWith('characters:')
+		);
+
+		// Add new character tag if there are characters selected
+		const newTags =
+			characterIds.length > 0
+				? [...otherTags, `characters: ${characterIds.join(', ')}`]
+				: otherTags;
+
+		dispatch(updatePassage(story, passage, {tags: newTags}));
+	}
+
 	return (
 		<ButtonBar>
 			{useCodeMirror && (
@@ -76,6 +105,14 @@ export const PassageToolbar: React.FC<PassageToolbarProps> = props => {
 				tagColors={story.tagColors}
 				tags={passage.tags}
 			/>
+			{characters.length > 0 && (
+				<CharacterSelector
+					characters={characters}
+					disabled={disabled}
+					onChange={handleCharacterChange}
+					selectedCharacterIds={selectedCharacterIds}
+				/>
+			)}
 			<MenuButton
 				disabled={disabled}
 				icon={<IconResize />}

@@ -52,7 +52,16 @@ export interface Passage {
 	width: number;
 }
 
+export interface Character {
+	id: string;
+	name: string;
+}
+
 export interface Story {
+	/**
+	 * Characters available in this story.
+	 */
+	characters?: Character[];
 	/**
 	 * IFID of the story. An IFID should stay stable when a story is imported or exported.
 	 */

@@ -13,7 +13,7 @@ export async function load(): Promise<Story[]> {
 
 	if (stories && Array.isArray(stories)) {
 		return stories.reduce((result, file) => {
-			const story = importStories(file.htmlSource, file.mtime);
+			const story = importStories(file.htmlSource, file.mtime, file.characters);
 
 			if (story[0]) {
 				return [...result, story[0]];
