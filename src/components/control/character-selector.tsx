@@ -6,6 +6,7 @@ import './character-selector.css';
 export interface Character {
 	id: string;
 	name: string;
+	image?: string;
 }
 
 export interface CharacterSelectorProps {
@@ -114,6 +115,13 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = props => {
 								onChange={() => handleCharacterToggle(character.id)}
 								type="checkbox"
 							/>
+							{character.image && (
+								<img
+									alt={character.name}
+									className="character-selector-option-thumbnail"
+									src={character.image}
+								/>
+							)}
 							<span className="character-selector-option-label">
 								{character.name}
 							</span>

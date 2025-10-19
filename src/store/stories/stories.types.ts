@@ -56,6 +56,7 @@ export interface Character {
 	id: string;
 	name: string;
 	color?: string;
+	image?: string;
 }
 
 export interface Story {

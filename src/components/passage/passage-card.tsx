@@ -181,6 +181,42 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 					selected={passage.selected}
 				>
 					<TagStripe tagColors={tagColors} tags={passage.tags} />
+					{/* Character thumbnails */}
+					{(() => {
+						const characterTag = passage.tags.find(tag =>
+							tag.startsWith('characters:')
+						);
+						if (!characterTag || !story.characters) return null;
+
+						const characterIds = characterTag
+							.replace('characters:', '')
+							.split(',')
+							.map(id => id.trim())
+							.filter(id => id);
+
+						const assignedCharacters = characterIds
+							.map(id => story.characters?.find(char => char.id === id))
+							.filter(
+								(char): char is NonNullable<typeof char> =>
+									char != null && char.image != null
+							);
+
+						if (assignedCharacters.length === 0) return null;
+
+						return (
+							<div className="passage-character-thumbnails">
+								{assignedCharacters.map(character => (
+									<img
+										key={character.id}
+										alt={character.name}
+										className="passage-character-thumbnail"
+										src={character.image}
+										title={character.name}
+									/>
+								))}
+							</div>
+						);
+					})()}
 					<h2>{passage.name}</h2>
 					<CardContent>{excerpt}</CardContent>
 				</SelectableCard>

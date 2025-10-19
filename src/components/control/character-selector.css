@@ -81,6 +81,13 @@
 	padding: calc(var(--grid-size) / 2);
 }
 
+.character-selector-option-thumbnail {
+	border-radius: 50%;
+	height: 24px;
+	object-fit: cover;
+	width: 24px;
+}
+
 .character-selector-option:hover:not(.character-selector-option--disabled) {
 	background: var(--light-gray-translucent);
 	border-radius: var(--corner-round);
