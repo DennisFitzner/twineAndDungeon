@@ -41,7 +41,6 @@ export const PassageToolbar: React.FC<PassageToolbarProps> = props => {
 		? characterTag
 				.replace('characters:', '')
 				.split(',')
-				.map(id => id.trim())
 				.filter(id => id)
 		: [];
 
@@ -82,7 +81,7 @@ export const PassageToolbar: React.FC<PassageToolbarProps> = props => {
 		// Add new character tag if there are characters selected
 		const newTags =
 			characterIds.length > 0
-				? [...otherTags, `characters: ${characterIds.join(', ')}`]
+				? [...otherTags, `characters:${characterIds.join(',')}`]
 				: otherTags;
 
 		dispatch(updatePassage(story, passage, {tags: newTags}));

@@ -80,7 +80,6 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		const characterIds = characterTag
 			.replace('characters:', '')
 			.split(',')
-			.map(id => id.trim())
 			.filter(id => id);
 
 		// Get character colors
@@ -191,7 +190,6 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 						const characterIds = characterTag
 							.replace('characters:', '')
 							.split(',')
-							.map(id => id.trim())
 							.filter(id => id);
 
 						const assignedCharacters = characterIds
