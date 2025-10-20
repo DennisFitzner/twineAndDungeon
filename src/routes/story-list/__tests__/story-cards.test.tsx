@@ -38,6 +38,7 @@ describe('<StoryCards>', () => {
 				<FakeStateProvider {...contexts}>
 					<StoryCards
 						onSelectStory={jest.fn()}
+						onSelectFolder={jest.fn()}
 						stories={[fakeStory()]}
 						{...props}
 					/>

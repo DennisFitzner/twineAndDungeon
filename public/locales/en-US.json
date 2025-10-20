@@ -122,6 +122,13 @@
 			"passageCount": "1 passage",
 			"passageCount_plural": "{{count}} passages"
 		},
+		"folderCard": {
+			"lastUpdated": "Last edited on {{date}}",
+			"storyCount": "1 story",
+			"storyCount_plural": "{{count}} stories",
+			"passageCount": "1 passage",
+			"passageCount_plural": "{{count}} passages"
+		},
 		"storyFormatItem": {
 			"author": "by {{author}}",
 			"builtIn": "Built In",
