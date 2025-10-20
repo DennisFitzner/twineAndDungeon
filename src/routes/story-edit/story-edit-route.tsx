@@ -19,6 +19,8 @@ import {usePassageChangeHandlers} from './use-passage-change-handlers';
 import {useViewCenter} from './use-view-center';
 import {useZoomShortcuts} from './use-zoom-shortcuts';
 import {useZoomTransition} from './use-zoom-transition';
+import {onNavigateTo} from '../../store/navigation-events';
+import {parseLinks, parseCrossPartLinkTarget} from '../../util/parse-links';
 import './story-edit-route.css';
 
 export const InnerStoryEditRoute: React.FC = () => {
@@ -60,6 +62,180 @@ export const InnerStoryEditRoute: React.FC = () => {
 		);
 	}, [storyParts, activePartId, story]);
 
+	// Generate backlink cards automatically when cross-part links are detected
+	React.useEffect(() => {
+		// Scan all other story parts for cross-part links that point to the current story
+		storyParts.forEach(otherStory => {
+			if (otherStory.id === activeStory.id) return; // Skip current story
+
+			otherStory.passages.forEach(otherPassage => {
+				const links = parseLinks(otherPassage.text);
+				links.forEach(linkText => {
+					const crossPartTarget = parseCrossPartLinkTarget(`[[${linkText}]]`);
+					if (crossPartTarget && crossPartTarget.part) {
+						// Check if this link points to the current story
+						const currentStoryName = activeStory.partName || activeStory.name;
+						if (
+							crossPartTarget.part.toLowerCase() ===
+							currentStoryName.toLowerCase()
+						) {
+							// Find the target passage in the current story
+							const targetPassage = activeStory.passages.find(
+								p =>
+									p.name.toLowerCase() === crossPartTarget.passage.toLowerCase()
+							);
+
+							if (targetPassage) {
+								// Check if backlink card already exists
+								const backlinkName = `← ${targetPassage.name}`;
+								const existingBacklink = activeStory.passages.find(
+									p => p.name === backlinkName
+								);
+
+								if (!existingBacklink) {
+									// Create backlink card
+									const backlinkCard = {
+										name: backlinkName,
+										text: `Back-reference from ${
+											otherStory.partName || otherStory.name
+										}:${otherPassage.name}`,
+										left: targetPassage.left + 200,
+										top: targetPassage.top + 100,
+										tags: [
+											'backlink',
+											`source-story:${otherStory.id}`,
+											`source-passage:${otherPassage.id}`
+										]
+									};
+
+									// Create the backlink passage
+									dispatch({
+										type: 'createPassages',
+										storyId: activeStory.id,
+										props: [backlinkCard]
+									});
+								}
+							}
+						}
+					}
+				});
+			});
+		});
+	}, [activeStory, storyParts, dispatch]);
+
+	// Log all passages to see if interlink cards are being created
+	React.useEffect(() => {
+		const interlinkCards = activeStory.passages.filter(p =>
+			p.tags.includes('interlink')
+		);
+		const backlinkCards = activeStory.passages.filter(p =>
+			p.name.startsWith('← ')
+		);
+		console.log('Total passages:', activeStory.passages.length);
+		console.log(
+			'Interlink cards found:',
+			interlinkCards.length,
+			interlinkCards
+		);
+		console.log('Backlink cards found:', backlinkCards.length, backlinkCards);
+	}, [activeStory.passages]);
+
+	// Custom connection parser that handles cross-part links and back-references
+	const crossPartConnectionParser = React.useCallback(
+		(text: string) => {
+			// Handle backlink cards - they should connect to the passage they reference
+			if (text.includes('Back-reference from')) {
+				// Extract the original passage name from the back-reference text
+				const originalPassageName = text.match(
+					/Back-reference from .*:(\w+)/
+				)?.[1];
+				if (originalPassageName) {
+					return [originalPassageName];
+				}
+			}
+
+			// Handle interlink cards - they should connect to the passage that created them
+			// For interlink cards, we need to find which passage contains the cross-part link
+			// We'll do this by scanning all passages to find the one that created this interlink
+			if (text.includes('interlink')) {
+				// This is an interlink card, find the passage that created it
+				// We need to scan all passages to find the one with the matching cross-part link
+				const interlinkPassage = activeStory.passages.find(
+					p => p.text === text
+				);
+				if (interlinkPassage && interlinkPassage.tags.includes('interlink')) {
+					const targetStoryTag = interlinkPassage.tags.find(tag =>
+						tag.startsWith('target-story:')
+					);
+					const targetPassageTag = interlinkPassage.tags.find(tag =>
+						tag.startsWith('target-passage:')
+					);
+
+					if (targetStoryTag && targetPassageTag) {
+						const targetStoryName = targetStoryTag.replace('target-story:', '');
+						const targetPassageName = targetPassageTag.replace(
+							'target-passage:',
+							''
+						);
+
+						// Find the passage in the current story that contains a cross-part link to this target
+						const sourcePassage = activeStory.passages.find(passage => {
+							const links = parseLinks(passage.text);
+							return links.some(linkText => {
+								const crossPartTarget = parseCrossPartLinkTarget(
+									`[[${linkText}]]`
+								);
+								return (
+									crossPartTarget &&
+									crossPartTarget.part === targetStoryName &&
+									crossPartTarget.passage === targetPassageName
+								);
+							});
+						});
+
+						if (sourcePassage) {
+							return [sourcePassage.name];
+						}
+					}
+				}
+			}
+
+			// Handle regular cross-part links in passage text
+			const links = parseLinks(text, true);
+			const crossPartLinks: string[] = [];
+
+			links.forEach(linkText => {
+				const crossPartTarget = parseCrossPartLinkTarget(`[[${linkText}]]`);
+				if (crossPartTarget && crossPartTarget.part) {
+					// This is a cross-part link, we need to find the reference passage
+					const targetStory = storyParts.find(
+						s =>
+							(s.partName || s.name).toLowerCase() ===
+							crossPartTarget.part!.toLowerCase()
+					);
+
+					if (targetStory) {
+						const targetPassage = targetStory.passages.find(
+							p =>
+								p.name.toLowerCase() === crossPartTarget.passage.toLowerCase()
+						);
+
+						if (targetPassage) {
+							// Return the target passage name so it can be found in the combined passages array
+							crossPartLinks.push(targetPassage.name);
+						}
+					}
+				} else {
+					// Regular local link
+					crossPartLinks.push(linkText);
+				}
+			});
+
+			return crossPartLinks;
+		},
+		[storyParts, activeStory.passages]
+	);
+
 	const {getCenter, setCenter} = useViewCenter(activeStory, mainContent);
 	const {
 		handleDeselectPassage,
@@ -68,10 +244,80 @@ export const InnerStoryEditRoute: React.FC = () => {
 		handleSelectPassage,
 		handleSelectRect
 	} = usePassageChangeHandlers(activeStory);
+
 	const visibleZoom = useZoomTransition(activeStory.zoom, mainContent.current);
 
 	useZoomShortcuts(activeStory);
 	useInitialPassageCreation(activeStory, getCenter);
+
+	// Cross-part navigation subscription
+	React.useEffect(() => {
+		const unsubscribe = onNavigateTo(
+			(targetPartId, targetPassageId, options) => {
+				// Handle both story IDs and story part names
+				let targetStory;
+				if (targetPartId) {
+					// Try to find by ID first
+					targetStory = storyParts.find(p => p.id === targetPartId);
+					if (!targetStory) {
+						// If not found by ID, try to find by part name
+						targetStory = storyParts.find(
+							p =>
+								(p.partName || p.name).toLowerCase() ===
+								targetPartId.toLowerCase()
+						);
+					}
+				}
+
+				if (!targetStory) return;
+
+				// Switch tab if needed
+				if (targetStory.id !== activePartId) {
+					setActivePartId(targetStory.id);
+				}
+
+				if (targetPassageId) {
+					// If we already know the passage id, select and center it
+					const targetPassage = targetStory.passages.find(
+						p => p.id === targetPassageId
+					);
+					if (targetPassage) {
+						setTimeout(() => {
+							// Center and select/highlight
+							setCenter(targetPassage);
+							handleSelectPassage(targetPassage, true);
+							if (options.openEditor) {
+								handleEditPassage(targetPassage);
+							}
+						}, 0);
+					}
+				} else if (options.fallbackPassageName) {
+					// Try to resolve by name if id was not supplied
+					const lower = options.fallbackPassageName.toLowerCase();
+					const targetPassage = targetStory.passages.find(
+						p => p.name.toLowerCase() === lower
+					);
+					if (targetPassage) {
+						setTimeout(() => {
+							setCenter(targetPassage);
+							handleSelectPassage(targetPassage, true);
+							if (options.openEditor) {
+								handleEditPassage(targetPassage);
+							}
+						}, 0);
+					}
+				}
+			}
+		);
+
+		return unsubscribe;
+	}, [
+		activePartId,
+		storyParts,
+		setCenter,
+		handleSelectPassage,
+		handleEditPassage
+	]);
 
 	// Handle part selection
 	const handleSelectPart = React.useCallback((partId: string) => {
@@ -290,6 +536,7 @@ export const InnerStoryEditRoute: React.FC = () => {
 					tagColors={activeStory.tagColors}
 					visibleZoom={visibleZoom}
 					zoom={activeStory.zoom}
+					crossPartConnectionParser={crossPartConnectionParser}
 				/>
 				<PassageFuzzyFinder
 					onClose={() => setFuzzyFinderOpen(false)}

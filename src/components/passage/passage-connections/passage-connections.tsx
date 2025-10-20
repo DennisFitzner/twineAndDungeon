@@ -5,6 +5,7 @@ import {PassageConnectionGroup} from './passage-connection-group';
 import {LinkMarkers} from './link-markers';
 import {StartConnection} from './start-connection';
 import {useFormatReferenceParser} from '../../../store/use-format-reference-parser';
+import {parseLinks} from '../../../util/parse-links';
 
 export interface PassageConnectionsProps {
 	formatName: string;
@@ -12,25 +13,36 @@ export interface PassageConnectionsProps {
 	offset: Point;
 	passages: Passage[];
 	startPassageId: string;
+	crossPartConnectionParser?: (text: string) => string[];
 }
 
 const emptySet = new Set<Passage>();
 const noOffset: Point = {left: 0, top: 0};
 
 export const PassageConnections: React.FC<PassageConnectionsProps> = props => {
-	const {formatName, formatVersion, offset, passages, startPassageId} = props;
-	const referenceParser = useFormatReferenceParser(formatName, formatVersion);
-	const {draggable: draggableLinks, fixed: fixedLinks} = React.useMemo(
-		() => passageConnections(passages),
-		[passages]
-	);
 	const {
-		draggable: draggableReferences,
-		fixed: fixedReferences
-	} = React.useMemo(() => passageConnections(passages, referenceParser), [
+		formatName,
+		formatVersion,
+		offset,
 		passages,
-		referenceParser
-	]);
+		startPassageId,
+		crossPartConnectionParser
+	} = props;
+	const referenceParser = useFormatReferenceParser(formatName, formatVersion);
+
+	// Use custom parser if provided, otherwise use default
+	const connectionParser =
+		crossPartConnectionParser || ((text: string) => parseLinks(text, true));
+
+	const {draggable: draggableLinks, fixed: fixedLinks} = React.useMemo(
+		() => passageConnections(passages, connectionParser),
+		[passages, connectionParser]
+	);
+	const {draggable: draggableReferences, fixed: fixedReferences} =
+		React.useMemo(
+			() => passageConnections(passages, referenceParser),
+			[passages, referenceParser]
+		);
 
 	const startPassage = React.useMemo(
 		() => passages.find(passage => passage.id === startPassageId),

@@ -34,23 +34,29 @@ export function usePassageChangeHandlers(story: Story) {
 				return;
 			}
 
-			undoableStoriesDispatch(
-				movePassages(
-					story,
-					story.passages.reduce<string[]>(
-						(result, current) =>
-							current.selected ? [...result, current.id] : result,
-						[]
-					),
-					change.left / story.zoom,
-					change.top / story.zoom
-				),
-				selectedPassages.length > 1
-					? 'undoChange.movePassages'
-					: 'undoChange.movePassages'
+			// Get all selected passages, including cross-part and back-reference passages
+			const allSelectedPassages = selectedPassages.filter(passage => passage.selected);
+			
+			// Only move passages that belong to the current story (not cross-part references)
+			const currentStoryPassages = allSelectedPassages.filter(passage => 
+				passage.story === story.id || !passage.story
 			);
+
+			if (currentStoryPassages.length > 0) {
+				undoableStoriesDispatch(
+					movePassages(
+						story,
+						currentStoryPassages.map(p => p.id),
+						change.left / story.zoom,
+						change.top / story.zoom
+					),
+					currentStoryPassages.length > 1
+						? 'undoChange.movePassages'
+						: 'undoChange.movePassages'
+				);
+			}
 		},
-		[selectedPassages.length, story, undoableStoriesDispatch]
+		[selectedPassages, story, undoableStoriesDispatch]
 	);
 
 	const handleEditPassage = React.useCallback(

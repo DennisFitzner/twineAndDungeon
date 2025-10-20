@@ -9,6 +9,7 @@ import {Passage, TagColors, Story} from '../../store/stories';
 import {TagStripe} from '../tag/tag-stripe';
 import {passageIsEmpty} from '../../util/passage-is-empty';
 import {DraggableCoreWrapper} from './draggable-core-wrapper';
+import {emitNavigateTo} from '../../store/navigation-events';
 import './passage-card.css';
 
 export interface PassageCardProps {
@@ -39,13 +40,25 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		tagColors
 	} = props;
 	const {t} = useTranslation();
+	// Detect if this is an interlink card (cross-part link)
+	const isInterlink = React.useMemo(() => {
+		return passage.tags.includes('interlink');
+	}, [passage.tags]);
+
+	// Detect if this is a back-reference passage
+	const isBackReference = React.useMemo(() => {
+		return passage.name.startsWith('← ');
+	}, [passage.name]);
+
 	const className = React.useMemo(
 		() =>
 			classNames('passage-card', {
 				empty: passageIsEmpty(passage),
-				selected: passage.selected
+				selected: passage.selected,
+				interlink: isInterlink,
+				'back-reference': isBackReference
 			}),
-		[passage]
+		[passage, isInterlink, isBackReference]
 	);
 	const container = React.useRef<HTMLDivElement>(null);
 	const excerpt = React.useMemo(() => {
@@ -148,10 +161,46 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		},
 		[onDeselect, onSelect, passage]
 	);
-	const handleEdit = React.useCallback(
-		() => onEdit(passage),
-		[onEdit, passage]
-	);
+	const handleEdit = React.useCallback(() => {
+		// For interlink passages, navigate to the correct tab instead of editing
+		if (isInterlink) {
+			// Extract target story and passage from tags
+			const targetStoryTag = passage.tags.find(tag =>
+				tag.startsWith('target-story:')
+			);
+			const targetPassageTag = passage.tags.find(tag =>
+				tag.startsWith('target-passage:')
+			);
+
+			if (targetStoryTag && targetPassageTag) {
+				const targetStory = targetStoryTag.replace('target-story:', '');
+				const targetPassage = targetPassageTag.replace('target-passage:', '');
+
+				emitNavigateTo(targetStory, undefined, {
+					openEditor: true,
+					centerAndHighlight: true,
+					fallbackPassageName: targetPassage
+				});
+			}
+		} else if (isBackReference) {
+			// For back-reference passages, navigate to the original passage that created the link
+			// Extract the source story and passage from the back-reference text
+			const backRefMatch = passage.text.match(/Back-reference from (.+):(.+)/);
+			if (backRefMatch) {
+				const sourceStoryName = backRefMatch[1];
+				const sourcePassageName = backRefMatch[2];
+
+				// Navigate to the source story and passage
+				emitNavigateTo(sourceStoryName, undefined, {
+					openEditor: true,
+					centerAndHighlight: true,
+					fallbackPassageName: sourcePassageName
+				});
+			}
+		} else {
+			onEdit(passage);
+		}
+	}, [onEdit, passage, isInterlink, isBackReference]);
 	const handleSelect = React.useCallback(
 		(value: boolean, exclusive: boolean) => {
 			onSelect(passage, exclusive);
@@ -159,13 +208,28 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		[onSelect, passage]
 	);
 
+	// For interlink and back-reference passages, we need to handle dragging differently
+	// They should be draggable but won't affect the story data
+	const dragHandlers =
+		isInterlink || isBackReference
+			? {
+					onStart: onDragStart,
+					onDrag: onDrag,
+					onStop: onDragStop
+			  }
+			: {
+					onStart: onDragStart,
+					onDrag: onDrag,
+					onStop: onDragStop
+			  };
+
 	return (
 		<DraggableCoreWrapper
 			nodeRef={container}
 			onMouseDown={handleMouseDown}
-			onStart={onDragStart}
-			onDrag={onDrag}
-			onStop={onDragStop}
+			onStart={dragHandlers.onStart}
+			onDrag={dragHandlers.onDrag}
+			onStop={dragHandlers.onStop}
 		>
 			<div
 				className={className}
