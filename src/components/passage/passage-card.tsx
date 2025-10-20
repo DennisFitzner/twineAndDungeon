@@ -1,13 +1,14 @@
 import classNames from 'classnames';
 import {deviceType} from 'detect-it';
 import * as React from 'react';
-import {DraggableCore, DraggableCoreProps} from 'react-draggable';
+import {DraggableCoreProps} from 'react-draggable';
 import {useTranslation} from 'react-i18next';
 import {CardContent} from '../container/card';
 import {SelectableCard} from '../container/card/selectable-card';
 import {Passage, TagColors, Story} from '../../store/stories';
 import {TagStripe} from '../tag/tag-stripe';
 import {passageIsEmpty} from '../../util/passage-is-empty';
+import {DraggableCoreWrapper} from './draggable-core-wrapper';
 import './passage-card.css';
 
 export interface PassageCardProps {
@@ -159,7 +160,7 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 	);
 
 	return (
-		<DraggableCore
+		<DraggableCoreWrapper
 			nodeRef={container}
 			onMouseDown={handleMouseDown}
 			onStart={onDragStart}
@@ -219,7 +220,7 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 					<CardContent>{excerpt}</CardContent>
 				</SelectableCard>
 			</div>
-		</DraggableCore>
+		</DraggableCoreWrapper>
 	);
 });
 
