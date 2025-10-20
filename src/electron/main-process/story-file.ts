@@ -19,7 +19,9 @@ import {Story} from '../../store/stories/stories.types';
  * Returns the folder path for a story based on its title.
  */
 function getStoryFolderPath(story: Story) {
-	return join(getStoryDirectoryPath(), story.name);
+	// For story parts, use the storyFolderName if it exists
+	const folderName = story.storyFolderName || story.name;
+	return join(getStoryDirectoryPath(), folderName);
 }
 
 /**
@@ -27,6 +29,13 @@ function getStoryFolderPath(story: Story) {
  */
 function getStoryHtmlPath(story: Story) {
 	return join(getStoryFolderPath(story), `${story.name}.html`);
+}
+
+/**
+ * Returns the HTML file path for a story part inside its folder.
+ */
+function getStoryPartPath(storyFolderName: string, partName: string) {
+	return join(getStoryDirectoryPath(), storyFolderName, `${partName}.html`);
 }
 
 import {
@@ -39,6 +48,8 @@ export interface StoryFile {
 	htmlSource: string;
 	mtime: Date;
 	characters?: Character[];
+	partName?: string;
+	storyFolderName?: string;
 }
 
 export interface Character {
@@ -48,7 +59,7 @@ export interface Character {
 
 /**
  * Returns a promise resolving to an array of HTML strings to load from the
- * story directory. Each string corresponds to an individual story.
+ * story directory. Each string corresponds to an individual story part.
  */
 export async function loadStories() {
 	const storyPath = getStoryDirectoryPath();
@@ -62,38 +73,52 @@ export async function loadStories() {
 			try {
 				const folderStats = await stat(folderPath);
 				if (folderStats.isDirectory()) {
-					const htmlFilePath = join(folderPath, `${f}.html`);
 					const charactersFilePath = join(folderPath, 'characters.json');
-					const htmlStats = await stat(htmlFilePath);
+					let characters: Character[] | undefined;
 
-					if (!htmlStats.isDirectory()) {
-						const storyFile: StoryFile = {
-							mtime: htmlStats.mtime,
-							htmlSource: await readFile(htmlFilePath, 'utf8')
-						};
-
-						// Try to load characters.json if it exists
-						try {
-							const charactersStats = await stat(charactersFilePath);
-							if (!charactersStats.isDirectory()) {
-								const charactersContent = await readFile(
-									charactersFilePath,
-									'utf8'
-								);
-								storyFile.characters = JSON.parse(charactersContent);
-							}
-						} catch (error) {
-							// characters.json doesn't exist or is invalid, that's okay
-							console.log(`No characters.json found for story ${f}`);
+					// Try to load characters.json if it exists
+					try {
+						const charactersStats = await stat(charactersFilePath);
+						if (!charactersStats.isDirectory()) {
+							const charactersContent = await readFile(
+								charactersFilePath,
+								'utf8'
+							);
+							characters = JSON.parse(charactersContent);
 						}
+					} catch (error) {
+						// characters.json doesn't exist or is invalid, that's okay
+						console.log(`No characters.json found for story ${f}`);
+					}
 
-						result.push(storyFile);
-						return fileWasTouched(htmlFilePath);
+					// Look for all HTML files in the folder
+					const folderFiles = await readdir(folderPath);
+					const htmlFiles = folderFiles.filter(file => file.endsWith('.html'));
+
+					for (const htmlFile of htmlFiles) {
+						const htmlFilePath = join(folderPath, htmlFile);
+						const htmlStats = await stat(htmlFilePath);
+
+						if (!htmlStats.isDirectory()) {
+							const partName = htmlFile.replace('.html', '');
+							const storyFile: StoryFile = {
+								mtime: htmlStats.mtime,
+								htmlSource: await readFile(htmlFilePath, 'utf8'),
+								partName,
+								storyFolderName: f,
+								characters
+							};
+
+							result.push(storyFile);
+							fileWasTouched(htmlFilePath);
+						}
 					}
 				}
 			} catch (error) {
-				// Skip folders that don't contain the expected HTML file
-				console.warn(`Story folder ${f} does not contain ${f}.html, skipping`);
+				// Skip folders that don't contain any HTML files
+				console.warn(
+					`Story folder ${f} does not contain any HTML files, skipping`
+				);
 			}
 		})
 	);
@@ -105,12 +130,18 @@ export async function loadStories() {
  * Saves story HTML to the file system. This returns a promise that resolves
  * when complete.
  */
-export async function saveStoryHtml(story: Story, storyHtml: string) {
+export async function saveStoryHtml(
+	story: Story,
+	storyHtml: string,
+	filename?: string
+) {
 	// We save to a temp file first, then overwrite the existing if that succeeds,
 	// so that if any step fails, the original file is left intact.
 
 	const storyFolderPath = getStoryFolderPath(story);
-	const savedFilePath = getStoryHtmlPath(story);
+	const savedFilePath = filename
+		? join(storyFolderPath, filename)
+		: getStoryHtmlPath(story);
 
 	console.log(`Saving ${savedFilePath}`);
 
@@ -121,7 +152,10 @@ export async function saveStoryHtml(story: Story, storyHtml: string) {
 		const tempFileDirectory = await mkdtemp(
 			join(app.getPath('temp'), `twine-${story.id}`)
 		);
-		const tempFilePath = join(tempFileDirectory, `${story.name}.html`);
+		const tempFilePath = join(
+			tempFileDirectory,
+			filename || `${story.name}.html`
+		);
 
 		if (await wasFileChangedExternally(savedFilePath)) {
 			const {response} = await dialog.showMessageBox({
@@ -194,3 +228,58 @@ export async function renameStory(oldStory: Story, newStory: Story) {
 		throw e;
 	}
 }
+
+/**
+ * Creates a new story part HTML file in an existing story folder.
+ */
+export async function createStoryPart(
+	storyFolderName: string,
+	partName: string
+) {
+	try {
+		const storyFolderPath = join(getStoryDirectoryPath(), storyFolderName);
+		const partFilePath = getStoryPartPath(storyFolderName, partName);
+
+		// Check if the story folder exists
+		const folderStats = await stat(storyFolderPath);
+		if (!folderStats.isDirectory()) {
+			throw new Error(`Story folder ${storyFolderName} does not exist`);
+		}
+
+		// Check if the part already exists
+		try {
+			await stat(partFilePath);
+			throw new Error(`Story part ${partName} already exists`);
+		} catch (error) {
+			// File doesn't exist, which is what we want
+		}
+
+		// Create a minimal HTML file for the new part
+		const minimalHtml = `<!DOCTYPE html>
+<html>
+<head>
+	<title>${partName}</title>
+</head>
+<body>
+	<div id="story">
+		<div id="passages">
+			<div class="passage" data-name="Start" data-tags="">
+				<div class="passage-content">
+					<p>Welcome to ${partName}!</p>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</html>`;
+
+		await writeFile(partFilePath, minimalHtml, 'utf8');
+		await fileWasTouched(partFilePath);
+		console.log(`Successfully created story part ${partFilePath}`);
+	} catch (e) {
+		console.error(`Error while creating story part: ${e}`);
+		throw e;
+	}
+}
+
+export {getStoryFolderPath};

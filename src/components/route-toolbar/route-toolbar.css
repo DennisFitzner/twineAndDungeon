@@ -5,7 +5,7 @@
 .route-toolbar {
 	background: var(--white);
 	box-shadow: var(--shadow-large);
-	height: calc(2 * var(--control-height));
+	height: calc(3 * var(--control-height));
 	left: 0;
 	position: fixed;
 	right: 0;
@@ -14,8 +14,22 @@
 	z-index: 1000;
 }
 
+.route-toolbar-additional-row {
+	background: var(--light-gray);
+	border-top: 1px solid var(--color-border);
+	height: var(--control-height);
+	display: flex;
+	align-items: center;
+	padding: 0 var(--ui-gap);
+}
+
 .route-toolbar .route-toolbar-top {
-	background: linear-gradient(to top, var(--light-gray) 0, var(--light-gray) 1px, transparent 1px);
+	background: linear-gradient(
+		to top,
+		var(--light-gray) 0,
+		var(--light-gray) 1px,
+		transparent 1px
+	);
 	display: flex;
 	height: var(--control-height);
 }
@@ -54,5 +68,10 @@
 
 .route-toolbar .route-toolbar-tab.selected {
 	font-weight: bold;
-	background: linear-gradient(to top, var(--blue) 0, var(--blue) 2px, transparent 2px)
+	background: linear-gradient(
+		to top,
+		var(--blue) 0,
+		var(--blue) 2px,
+		transparent 2px
+	);
 }
