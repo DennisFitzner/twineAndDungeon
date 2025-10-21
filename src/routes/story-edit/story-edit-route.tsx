@@ -64,6 +64,16 @@ export const InnerStoryEditRoute: React.FC = () => {
 
 	// Generate backlink cards automatically when cross-part links are detected
 	React.useEffect(() => {
+		// Only run this effect when storyParts change, not when activeStory.passages change
+		// to prevent infinite loops
+		const backlinkCardsToCreate: Array<{
+			name: string;
+			text: string;
+			left: number;
+			top: number;
+			tags: string[];
+		}> = [];
+
 		// Scan all other story parts for cross-part links that point to the current story
 		storyParts.forEach(otherStory => {
 			if (otherStory.id === activeStory.id) return; // Skip current story
@@ -93,8 +103,8 @@ export const InnerStoryEditRoute: React.FC = () => {
 								);
 
 								if (!existingBacklink) {
-									// Create backlink card
-									const backlinkCard = {
+									// Queue backlink card for creation in the current story
+									backlinkCardsToCreate.push({
 										name: backlinkName,
 										text: `Back-reference from ${
 											otherStory.partName || otherStory.name
@@ -106,13 +116,6 @@ export const InnerStoryEditRoute: React.FC = () => {
 											`source-story:${otherStory.id}`,
 											`source-passage:${otherPassage.id}`
 										]
-									};
-
-									// Create the backlink passage
-									dispatch({
-										type: 'createPassages',
-										storyId: activeStory.id,
-										props: [backlinkCard]
 									});
 								}
 							}
@@ -121,7 +124,19 @@ export const InnerStoryEditRoute: React.FC = () => {
 				});
 			});
 		});
-	}, [activeStory, storyParts, dispatch]);
+
+		// Create all backlink cards at once
+		if (backlinkCardsToCreate.length > 0) {
+			console.log('Creating backlink cards:', backlinkCardsToCreate);
+			dispatch({
+				type: 'createPassages',
+				storyId: activeStory.id,
+				props: backlinkCardsToCreate
+			});
+		} else {
+			console.log('No backlink cards to create');
+		}
+	}, [storyParts, dispatch]); // Removed activeStory from dependencies
 
 	// Log all passages to see if interlink cards are being created
 	React.useEffect(() => {
@@ -151,52 +166,6 @@ export const InnerStoryEditRoute: React.FC = () => {
 				)?.[1];
 				if (originalPassageName) {
 					return [originalPassageName];
-				}
-			}
-
-			// Handle interlink cards - they should connect to the passage that created them
-			// For interlink cards, we need to find which passage contains the cross-part link
-			// We'll do this by scanning all passages to find the one that created this interlink
-			if (text.includes('interlink')) {
-				// This is an interlink card, find the passage that created it
-				// We need to scan all passages to find the one with the matching cross-part link
-				const interlinkPassage = activeStory.passages.find(
-					p => p.text === text
-				);
-				if (interlinkPassage && interlinkPassage.tags.includes('interlink')) {
-					const targetStoryTag = interlinkPassage.tags.find(tag =>
-						tag.startsWith('target-story:')
-					);
-					const targetPassageTag = interlinkPassage.tags.find(tag =>
-						tag.startsWith('target-passage:')
-					);
-
-					if (targetStoryTag && targetPassageTag) {
-						const targetStoryName = targetStoryTag.replace('target-story:', '');
-						const targetPassageName = targetPassageTag.replace(
-							'target-passage:',
-							''
-						);
-
-						// Find the passage in the current story that contains a cross-part link to this target
-						const sourcePassage = activeStory.passages.find(passage => {
-							const links = parseLinks(passage.text);
-							return links.some(linkText => {
-								const crossPartTarget = parseCrossPartLinkTarget(
-									`[[${linkText}]]`
-								);
-								return (
-									crossPartTarget &&
-									crossPartTarget.part === targetStoryName &&
-									crossPartTarget.passage === targetPassageName
-								);
-							});
-						});
-
-						if (sourcePassage) {
-							return [sourcePassage.name];
-						}
-					}
 				}
 			}
 
@@ -233,7 +202,7 @@ export const InnerStoryEditRoute: React.FC = () => {
 
 			return crossPartLinks;
 		},
-		[storyParts, activeStory.passages]
+		[storyParts]
 	);
 
 	const {getCenter, setCenter} = useViewCenter(activeStory, mainContent);

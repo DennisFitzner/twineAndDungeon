@@ -5,7 +5,7 @@ import {PassageConnectionGroup} from './passage-connection-group';
 import {LinkMarkers} from './link-markers';
 import {StartConnection} from './start-connection';
 import {useFormatReferenceParser} from '../../../store/use-format-reference-parser';
-import {parseLinks} from '../../../util/parse-links';
+import {parseLinks, parseCrossPartLinkTarget} from '../../../util/parse-links';
 
 export interface PassageConnectionsProps {
 	formatName: string;
@@ -34,10 +34,116 @@ export const PassageConnections: React.FC<PassageConnectionsProps> = props => {
 	const connectionParser =
 		crossPartConnectionParser || ((text: string) => parseLinks(text, true));
 
-	const {draggable: draggableLinks, fixed: fixedLinks} = React.useMemo(
-		() => passageConnections(passages, connectionParser),
-		[passages, connectionParser]
-	);
+	const {draggable: draggableLinks, fixed: fixedLinks} = React.useMemo(() => {
+		const connections = passageConnections(passages, connectionParser);
+
+		// Add custom connections for interlink and backlink cards
+		const interlinkCards = passages.filter(p => p.tags.includes('interlink'));
+		const backlinkCards = passages.filter(p => p.name.startsWith('← '));
+
+		// Add connections for interlink cards
+		// Interlink cards should connect to the passage that contains the cross-part link (source passage)
+		interlinkCards.forEach(interlinkCard => {
+			const targetStoryTag = interlinkCard.tags.find(tag =>
+				tag.startsWith('target-story:')
+			);
+			const targetPassageTag = interlinkCard.tags.find(tag =>
+				tag.startsWith('target-passage:')
+			);
+
+			if (targetStoryTag && targetPassageTag) {
+				const targetStoryName = targetStoryTag.replace('target-story:', '');
+				const targetPassageName = targetPassageTag.replace(
+					'target-passage:',
+					''
+				);
+
+				// Find the passage that contains the cross-part link that created this interlink
+				const sourcePassage = passages.find(passage => {
+					const links = parseLinks(passage.text);
+					return links.some(linkText => {
+						const crossPartTarget = parseCrossPartLinkTarget(`[[${linkText}]]`);
+						return (
+							crossPartTarget &&
+							crossPartTarget.part === targetStoryName &&
+							crossPartTarget.passage === targetPassageName
+						);
+					});
+				});
+
+				if (sourcePassage) {
+					// Add connection from source passage to interlink card
+					// (source passage -> interlink card)
+					if (sourcePassage.selected || interlinkCard.selected) {
+						if (!connections.draggable.connections.has(sourcePassage)) {
+							connections.draggable.connections.set(sourcePassage, new Set());
+						}
+						connections.draggable.connections
+							.get(sourcePassage)!
+							.add(interlinkCard);
+					} else {
+						if (!connections.fixed.connections.has(sourcePassage)) {
+							connections.fixed.connections.set(sourcePassage, new Set());
+						}
+						connections.fixed.connections
+							.get(sourcePassage)!
+							.add(interlinkCard);
+					}
+				}
+			}
+		});
+
+		// Add connections for backlink cards
+		// Backlink cards should connect to the passage they reference (target passage)
+		console.log('Processing backlink cards:', backlinkCards.length);
+		console.log(
+			'Available passages:',
+			passages.map(p => p.name)
+		);
+		backlinkCards.forEach(backlinkCard => {
+			console.log(
+				'Backlink card:',
+				backlinkCard.name,
+				'text:',
+				backlinkCard.text
+			);
+			// Extract the target passage name from the backlink card name
+			// Format: "← PassageName"
+			const targetPassageName = backlinkCard.name.replace(/^← /, '').trim();
+			console.log('Extracted target passage name:', targetPassageName);
+			if (targetPassageName) {
+				const targetPassage = passages.find(p => p.name === targetPassageName);
+				console.log('Found target passage:', targetPassage);
+				if (targetPassage) {
+					// Add connection from backlink card to target passage
+					// (backlink card -> target passage)
+					console.log('Adding connection from backlink to target');
+					if (backlinkCard.selected || targetPassage.selected) {
+						if (!connections.draggable.connections.has(backlinkCard)) {
+							connections.draggable.connections.set(backlinkCard, new Set());
+						}
+						connections.draggable.connections
+							.get(backlinkCard)!
+							.add(targetPassage);
+					} else {
+						if (!connections.fixed.connections.has(backlinkCard)) {
+							connections.fixed.connections.set(backlinkCard, new Set());
+						}
+						connections.fixed.connections.get(backlinkCard)!.add(targetPassage);
+					}
+				} else {
+					console.log('Target passage not found for:', targetPassageName);
+				}
+			} else {
+				console.log(
+					'Could not extract target passage name from:',
+					backlinkCard.name
+				);
+			}
+		});
+
+		return connections;
+	}, [passages, connectionParser]);
 	const {draggable: draggableReferences, fixed: fixedReferences} =
 		React.useMemo(
 			() => passageConnections(passages, referenceParser),
