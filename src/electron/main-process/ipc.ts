@@ -160,6 +160,42 @@ export function initIpc() {
 		}
 	});
 
+	ipcMain.handle('load-story-part', async (event, filePath: string) => {
+		try {
+			const {readFile, stat} = await import('fs-extra');
+			const {join, dirname, basename} = await import('path');
+
+			// Read the HTML file
+			const htmlSource = await readFile(filePath, 'utf8');
+			const stats = await stat(filePath);
+
+			// Get the part name and folder name
+			const partName = basename(filePath, '.html');
+			const folderName = basename(dirname(filePath));
+
+			// Try to load characters.json if it exists
+			let characters;
+			try {
+				const charactersPath = join(dirname(filePath), 'characters.json');
+				const charactersContent = await readFile(charactersPath, 'utf8');
+				characters = JSON.parse(charactersContent);
+			} catch (error) {
+				// characters.json doesn't exist or is invalid, that's okay
+				characters = undefined;
+			}
+
+			return {
+				htmlSource,
+				mtime: stats.mtime,
+				partName,
+				storyFolderName: folderName,
+				characters
+			};
+		} catch (error) {
+			throw new Error(`Failed to load story part: ${(error as Error).message}`);
+		}
+	});
+
 	ipcMain.on(
 		'open-with-scratch-file',
 		(event, data: string, filename: string) => {

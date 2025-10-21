@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld('twineElectron', {
 	scanStoryParts(storyFolderPath: string) {
 		return ipcRenderer.invoke('scan-story-parts', storyFolderPath);
 	},
+	loadStoryPart(filePath: string) {
+		return ipcRenderer.invoke('load-story-part', filePath);
+	},
 	deleteStory(story: Story) {
 		ipcRenderer.send('delete-story', story);
 	},

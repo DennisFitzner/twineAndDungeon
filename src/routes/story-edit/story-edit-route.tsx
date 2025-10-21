@@ -21,6 +21,7 @@ import {useZoomShortcuts} from './use-zoom-shortcuts';
 import {useZoomTransition} from './use-zoom-transition';
 import {onNavigateTo} from '../../store/navigation-events';
 import {parseLinks, parseCrossPartLinkTarget} from '../../util/parse-links';
+import {importStories} from '../../util/import';
 import './story-edit-route.css';
 
 export const InnerStoryEditRoute: React.FC = () => {
@@ -188,58 +189,147 @@ export const InnerStoryEditRoute: React.FC = () => {
 	// Cross-part navigation subscription
 	React.useEffect(() => {
 		const unsubscribe = onNavigateTo(
-			(targetPartId, targetPassageId, options) => {
+			async (targetPartId, targetPassageId, options) => {
 				// Handle both story IDs and story part names
 				let targetStory;
 				if (targetPartId) {
-					// Try to find by ID first
+					// Try to find by ID first in storyParts
 					targetStory = storyParts.find(p => p.id === targetPartId);
 					if (!targetStory) {
-						// If not found by ID, try to find by part name
+						// If not found by ID, try to find by part name in storyParts
 						targetStory = storyParts.find(
 							p =>
 								(p.partName || p.name).toLowerCase() ===
 								targetPartId.toLowerCase()
 						);
 					}
-				}
 
-				if (!targetStory) return;
+					// If still not found, try to load the story part from file system
+					if (!targetStory) {
+						try {
+							const {twineElectron} = window as TwineElectronWindow;
+							if (twineElectron) {
+								// Get the story folder path
+								const storyFolderPath = await twineElectron.getStoryFolderPath(
+									story
+								);
 
-				// Switch tab if needed
-				if (targetStory.id !== activePartId) {
-					setActivePartId(targetStory.id);
-				}
+								// Scan for available story parts
+								const availableParts = await twineElectron.scanStoryParts(
+									storyFolderPath
+								);
 
-				if (targetPassageId) {
-					// If we already know the passage id, select and center it
-					const targetPassage = targetStory.passages.find(
-						p => p.id === targetPassageId
-					);
-					if (targetPassage) {
-						setTimeout(() => {
-							// Center and select/highlight
-							setCenter(targetPassage);
-							handleSelectPassage(targetPassage, true);
-							if (options.openEditor) {
-								handleEditPassage(targetPassage);
+								// Find the target part by name
+								const targetPartFile = availableParts.find(part => {
+									const partName = part.name.replace('.html', '');
+									return partName.toLowerCase() === targetPartId.toLowerCase();
+								});
+
+								if (targetPartFile) {
+									// Load the story part
+									const storyFile = await twineElectron.loadStoryPart(
+										targetPartFile.path
+									);
+									if (storyFile) {
+										// Import the story
+										const importedStories = importStories(
+											storyFile.htmlSource,
+											storyFile.mtime,
+											storyFile.characters
+										);
+										if (importedStories[0]) {
+											// Set metadata
+											importedStories[0].partName = storyFile.partName;
+											importedStories[0].storyFolderName =
+												storyFile.storyFolderName;
+
+											// Add to stories
+											dispatch({
+												type: 'createStory',
+												props: importedStories[0]
+											});
+
+											// Wait for the component to re-render and then find the target story
+											// in the updated storyParts array
+											setTimeout(() => {
+												// Find the target story in the updated storyParts array
+												const updatedTargetStory = storyParts.find(
+													p => p.id === importedStories[0].id
+												);
+
+												if (updatedTargetStory) {
+													// Switch tab if needed
+													if (updatedTargetStory.id !== activePartId) {
+														setActivePartId(updatedTargetStory.id);
+													}
+
+													if (targetPassageId) {
+														// Find the target passage
+														const targetPassage =
+															updatedTargetStory.passages.find(
+																p => p.id === targetPassageId
+															);
+														if (targetPassage) {
+															// Select the target passage
+															dispatch({
+																type: 'updatePassage',
+																storyId: updatedTargetStory.id,
+																passageId: targetPassage.id,
+																props: {selected: true}
+															});
+														}
+													}
+												}
+											}, 100); // Small delay to allow component to re-render
+
+											return; // Exit early since we're handling navigation in setTimeout
+										}
+									}
+								}
 							}
-						}, 0);
+						} catch (error) {
+							console.error('Failed to load story part:', error);
+							return;
+						}
 					}
-				} else if (options.fallbackPassageName) {
-					// Try to resolve by name if id was not supplied
-					const lower = options.fallbackPassageName.toLowerCase();
-					const targetPassage = targetStory.passages.find(
-						p => p.name.toLowerCase() === lower
-					);
-					if (targetPassage) {
-						setTimeout(() => {
-							setCenter(targetPassage);
-							handleSelectPassage(targetPassage, true);
-							if (options.openEditor) {
-								handleEditPassage(targetPassage);
-							}
-						}, 0);
+
+					if (!targetStory) return;
+
+					// Switch tab if needed
+					if (targetStory.id !== activePartId) {
+						setActivePartId(targetStory.id);
+					}
+
+					if (targetPassageId) {
+						// If we already know the passage id, select and center it
+						const targetPassage = targetStory.passages.find(
+							p => p.id === targetPassageId
+						);
+						if (targetPassage) {
+							setTimeout(() => {
+								// Center and select/highlight
+								setCenter(targetPassage);
+								handleSelectPassage(targetPassage, true);
+								if (options.openEditor) {
+									handleEditPassage(targetPassage);
+								}
+							}, 0);
+						}
+					} else if (options.fallbackPassageName) {
+						// Try to resolve by name if id was not supplied
+						const lower = options.fallbackPassageName.toLowerCase();
+						const targetPassage = targetStory.passages.find(
+							p => p.name.toLowerCase() === lower
+						);
+						if (targetPassage) {
+							setTimeout(() => {
+								setCenter(targetPassage);
+								handleSelectPassage(targetPassage, true);
+								if (options.openEditor) {
+									handleEditPassage(targetPassage);
+								}
+							}, 0);
+						}
 					}
 				}
 			}
@@ -251,7 +341,9 @@ export const InnerStoryEditRoute: React.FC = () => {
 		storyParts,
 		setCenter,
 		handleSelectPassage,
-		handleEditPassage
+		handleEditPassage,
+		story,
+		dispatch
 	]);
 
 	// Handle part selection

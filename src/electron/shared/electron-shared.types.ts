@@ -17,6 +17,13 @@ export interface TwineElectronWindow extends Window {
 				isDirectory: boolean;
 			}>
 		>;
+		loadStoryPart(filePath: string): Promise<{
+			htmlSource: string;
+			mtime: Date;
+			partName: string;
+			storyFolderName: string;
+			characters?: any;
+		}>;
 		loadPrefs(): Promise<any>;
 		loadStories(): Promise<any>;
 		loadStoryFormats(): Promise<any>;
