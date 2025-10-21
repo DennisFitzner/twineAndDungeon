@@ -47,8 +47,9 @@ export function createNewlyLinkedPassages(
 			const crossPartTarget = parseCrossPartLinkTarget(`[[${linkText}]]`);
 			if (crossPartTarget && crossPartTarget.part) {
 				// This is a cross-part link, create an interlink card
+				// Use a special name format to avoid conflicts with actual passages
 				toCreate.push({
-					name: linkText,
+					name: `→ ${crossPartTarget.part}:${crossPartTarget.passage}`,
 					isInterlink: true,
 					targetStory: crossPartTarget.part,
 					targetPassage: crossPartTarget.passage
@@ -126,7 +127,9 @@ export function createNewlyLinkedPassages(
 								`target-story:${item.targetStory}`,
 								`target-passage:${item.targetPassage}`
 						  ]
-						: []
+						: [],
+					// Add explicit empty text for interlink cards to prevent them from being parsed as links
+					text: item.isInterlink ? '' : undefined
 				};
 
 				left += passageDefs.width + passageGap;

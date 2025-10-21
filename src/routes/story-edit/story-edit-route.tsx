@@ -133,7 +133,7 @@ export const InnerStoryEditRoute: React.FC = () => {
 				props: backlinkCardsToCreate
 			});
 		}
-	}, [storyParts, dispatch]); // Removed activeStory from dependencies
+	}, [storyParts, dispatch, activePartId]); // Added activePartId to trigger when switching story parts
 
 	// Custom connection parser that handles cross-part links and back-references
 	const crossPartConnectionParser = React.useCallback(
@@ -156,24 +156,10 @@ export const InnerStoryEditRoute: React.FC = () => {
 			links.forEach(linkText => {
 				const crossPartTarget = parseCrossPartLinkTarget(`[[${linkText}]]`);
 				if (crossPartTarget && crossPartTarget.part) {
-					// This is a cross-part link, we need to find the reference passage
-					const targetStory = storyParts.find(
-						s =>
-							(s.partName || s.name).toLowerCase() ===
-							crossPartTarget.part!.toLowerCase()
-					);
-
-					if (targetStory) {
-						const targetPassage = targetStory.passages.find(
-							p =>
-								p.name.toLowerCase() === crossPartTarget.passage.toLowerCase()
-						);
-
-						if (targetPassage) {
-							// Return the target passage name so it can be found in the combined passages array
-							crossPartLinks.push(targetPassage.name);
-						}
-					}
+					// This is a cross-part link - don't create connections for these
+					// The interlink cards will handle the visual connections
+					// Return empty to avoid broken connections
+					return;
 				} else {
 					// Regular local link
 					crossPartLinks.push(linkText);

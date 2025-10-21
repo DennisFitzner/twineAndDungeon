@@ -31,6 +31,7 @@ export const PassageConnections: React.FC<PassageConnectionsProps> = props => {
 	const referenceParser = useFormatReferenceParser(formatName, formatVersion);
 
 	// Use custom parser if provided, otherwise use default
+	// Note: The custom parser will only be applied to regular passages, not interlink/backlink cards
 	const connectionParser =
 		crossPartConnectionParser || ((text: string) => parseLinks(text, true));
 
@@ -44,7 +45,13 @@ export const PassageConnections: React.FC<PassageConnectionsProps> = props => {
 	);
 
 	const {draggable: draggableLinks, fixed: fixedLinks} = React.useMemo(() => {
-		const connections = passageConnections(passages, connectionParser);
+		// Filter out interlink and backlink cards from regular passage connections
+		// to prevent them from being connected to the start passage or other unwanted connections
+		const regularPassages = passages.filter(
+			p => !p.tags.includes('interlink') && !p.name.startsWith('← ')
+		);
+
+		const connections = passageConnections(regularPassages, connectionParser);
 
 		// Add connections for interlink cards
 		// Interlink cards should connect to the passage that contains the cross-part link (source passage)
@@ -129,10 +136,13 @@ export const PassageConnections: React.FC<PassageConnectionsProps> = props => {
 		return connections;
 	}, [passages, connectionParser]);
 	const {draggable: draggableReferences, fixed: fixedReferences} =
-		React.useMemo(
-			() => passageConnections(passages, referenceParser),
-			[passages, referenceParser]
-		);
+		React.useMemo(() => {
+			// Filter out interlink and backlink cards from reference connections too
+			const regularPassages = passages.filter(
+				p => !p.tags.includes('interlink') && !p.name.startsWith('← ')
+			);
+			return passageConnections(regularPassages, referenceParser);
+		}, [passages, referenceParser]);
 
 	const startPassage = React.useMemo(
 		() => passages.find(passage => passage.id === startPassageId),
