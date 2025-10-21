@@ -127,33 +127,13 @@ export const InnerStoryEditRoute: React.FC = () => {
 
 		// Create all backlink cards at once
 		if (backlinkCardsToCreate.length > 0) {
-			console.log('Creating backlink cards:', backlinkCardsToCreate);
 			dispatch({
 				type: 'createPassages',
 				storyId: activeStory.id,
 				props: backlinkCardsToCreate
 			});
-		} else {
-			console.log('No backlink cards to create');
 		}
 	}, [storyParts, dispatch]); // Removed activeStory from dependencies
-
-	// Log all passages to see if interlink cards are being created
-	React.useEffect(() => {
-		const interlinkCards = activeStory.passages.filter(p =>
-			p.tags.includes('interlink')
-		);
-		const backlinkCards = activeStory.passages.filter(p =>
-			p.name.startsWith('← ')
-		);
-		console.log('Total passages:', activeStory.passages.length);
-		console.log(
-			'Interlink cards found:',
-			interlinkCards.length,
-			interlinkCards
-		);
-		console.log('Backlink cards found:', backlinkCards.length, backlinkCards);
-	}, [activeStory.passages]);
 
 	// Custom connection parser that handles cross-part links and back-references
 	const crossPartConnectionParser = React.useCallback(

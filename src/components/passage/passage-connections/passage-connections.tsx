@@ -34,12 +34,17 @@ export const PassageConnections: React.FC<PassageConnectionsProps> = props => {
 	const connectionParser =
 		crossPartConnectionParser || ((text: string) => parseLinks(text, true));
 
+	// Memoize passage filtering to avoid repeated calculations
+	const {interlinkCards, backlinkCards} = React.useMemo(
+		() => ({
+			interlinkCards: passages.filter(p => p.tags.includes('interlink')),
+			backlinkCards: passages.filter(p => p.name.startsWith('← '))
+		}),
+		[passages]
+	);
+
 	const {draggable: draggableLinks, fixed: fixedLinks} = React.useMemo(() => {
 		const connections = passageConnections(passages, connectionParser);
-
-		// Add custom connections for interlink and backlink cards
-		const interlinkCards = passages.filter(p => p.tags.includes('interlink'));
-		const backlinkCards = passages.filter(p => p.name.startsWith('← '));
 
 		// Add connections for interlink cards
 		// Interlink cards should connect to the passage that contains the cross-part link (source passage)
@@ -95,29 +100,15 @@ export const PassageConnections: React.FC<PassageConnectionsProps> = props => {
 
 		// Add connections for backlink cards
 		// Backlink cards should connect to the passage they reference (target passage)
-		console.log('Processing backlink cards:', backlinkCards.length);
-		console.log(
-			'Available passages:',
-			passages.map(p => p.name)
-		);
 		backlinkCards.forEach(backlinkCard => {
-			console.log(
-				'Backlink card:',
-				backlinkCard.name,
-				'text:',
-				backlinkCard.text
-			);
 			// Extract the target passage name from the backlink card name
 			// Format: "← PassageName"
 			const targetPassageName = backlinkCard.name.replace(/^← /, '').trim();
-			console.log('Extracted target passage name:', targetPassageName);
 			if (targetPassageName) {
 				const targetPassage = passages.find(p => p.name === targetPassageName);
-				console.log('Found target passage:', targetPassage);
 				if (targetPassage) {
 					// Add connection from backlink card to target passage
 					// (backlink card -> target passage)
-					console.log('Adding connection from backlink to target');
 					if (backlinkCard.selected || targetPassage.selected) {
 						if (!connections.draggable.connections.has(backlinkCard)) {
 							connections.draggable.connections.set(backlinkCard, new Set());
@@ -131,14 +122,7 @@ export const PassageConnections: React.FC<PassageConnectionsProps> = props => {
 						}
 						connections.fixed.connections.get(backlinkCard)!.add(targetPassage);
 					}
-				} else {
-					console.log('Target passage not found for:', targetPassageName);
 				}
-			} else {
-				console.log(
-					'Could not extract target passage name from:',
-					backlinkCard.name
-				);
 			}
 		});
 
