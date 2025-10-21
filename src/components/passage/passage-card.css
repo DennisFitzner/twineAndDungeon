@@ -99,6 +99,9 @@
 	);
 	border: 2px solid hsla(45, 100%, 60%, 0.8);
 	box-shadow: 0 2px 8px hsla(45, 100%, 50%, 0.3);
+	/* Make interlink cards bigger */
+	transform: scale(1.1);
+	z-index: 10;
 }
 
 .passage-card.interlink.selected .card {
@@ -118,6 +121,20 @@
 
 .passage-card.interlink .card-content {
 	color: hsla(45, 100%, 25%, 0.8);
+}
+
+/* Story part name for interlink cards */
+.passage-card.interlink .story-part-name {
+	background: hsla(45, 100%, 70%, 0.9);
+	color: hsla(45, 100%, 20%, 1);
+	font-size: 75%;
+	font-weight: 600;
+	margin: calc(var(--grid-size) / -2) calc(var(--grid-size) / -2)
+		calc(var(--grid-size) / 2) calc(var(--grid-size) / -2);
+	padding: calc(var(--grid-size) / 4) calc(var(--grid-size) / 2);
+	text-align: center;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
 }
 
 /* Dark theme support for interlink passages */
@@ -149,6 +166,11 @@
 	color: hsla(45, 100%, 60%, 0.9);
 }
 
+[data-app-theme='dark'] .passage-card.interlink .story-part-name {
+	background: hsla(45, 80%, 30%, 0.9);
+	color: hsla(45, 100%, 80%, 1);
+}
+
 /* Back-reference passage styling */
 .passage-card.back-reference .card {
 	background: linear-gradient(
@@ -158,6 +180,9 @@
 	);
 	border: 2px solid hsla(200, 100%, 60%, 0.8);
 	box-shadow: 0 2px 8px hsla(200, 100%, 50%, 0.3);
+	/* Make backlink cards bigger */
+	transform: scale(1.1);
+	z-index: 10;
 }
 
 .passage-card.back-reference.selected .card {
@@ -177,6 +202,20 @@
 
 .passage-card.back-reference .card-content {
 	color: hsla(200, 100%, 25%, 0.8);
+}
+
+/* Story part name for backlink cards */
+.passage-card.back-reference .story-part-name {
+	background: hsla(200, 100%, 70%, 0.9);
+	color: hsla(200, 100%, 20%, 1);
+	font-size: 75%;
+	font-weight: 600;
+	margin: calc(var(--grid-size) / -2) calc(var(--grid-size) / -2)
+		calc(var(--grid-size) / 2) calc(var(--grid-size) / -2);
+	padding: calc(var(--grid-size) / 4) calc(var(--grid-size) / 2);
+	text-align: center;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
 }
 
 /* Dark theme support for back-reference passages */
@@ -206,4 +245,9 @@
 
 [data-app-theme='dark'] .passage-card.back-reference .card-content {
 	color: hsla(200, 100%, 60%, 0.9);
+}
+
+[data-app-theme='dark'] .passage-card.back-reference .story-part-name {
+	background: hsla(200, 80%, 30%, 0.9);
+	color: hsla(200, 100%, 80%, 1);
 }

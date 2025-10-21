@@ -50,6 +50,22 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		return passage.name.startsWith('← ');
 	}, [passage.name]);
 
+	// Extract story part name for display
+	const storyPartName = React.useMemo(() => {
+		if (isInterlink) {
+			// For interlink cards, extract from tags
+			const targetStoryTag = passage.tags.find(tag =>
+				tag.startsWith('target-story:')
+			);
+			return targetStoryTag ? targetStoryTag.replace('target-story:', '') : '';
+		} else if (isBackReference) {
+			// For backlink cards, extract from the back-reference text
+			const backRefMatch = passage.text.match(/Back-reference from (.+):/);
+			return backRefMatch ? backRefMatch[1] : '';
+		}
+		return '';
+	}, [isInterlink, isBackReference, passage.tags, passage.text]);
+
 	const className = React.useMemo(
 		() =>
 			classNames('passage-card', {
@@ -280,6 +296,10 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 							</div>
 						);
 					})()}
+					{/* Show story part name for interlink and backlink cards */}
+					{(isInterlink || isBackReference) && storyPartName && (
+						<div className="story-part-name">{storyPartName}</div>
+					)}
 					<h2>{passage.name}</h2>
 					<CardContent>{excerpt}</CardContent>
 				</SelectableCard>
