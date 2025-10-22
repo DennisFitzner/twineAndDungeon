@@ -34,5 +34,8 @@ export interface TwineElectronWindow extends Window {
 		saveJson(filename: string, data: any): void;
 		onCreatePassageShortcut(callback: () => void): () => void;
 		onCreateStoryPartShortcut(callback: () => void): () => void;
+		onCopyPassagesShortcut(callback: () => void): () => void;
+		onCutPassagesShortcut(callback: () => void): () => void;
+		onPastePassagesShortcut(callback: () => void): () => void;
 	};
 }

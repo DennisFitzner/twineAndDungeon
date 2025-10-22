@@ -62,6 +62,22 @@ export function initMenuBar() {
 					accelerator: 'CmdOrCtrl+P',
 					click: () => sendAccelerator('accelerator:new-story-part'),
 					label: i18n.t('storyPartTabs.createNewPart')
+				},
+				{type: 'separator'},
+				{
+					accelerator: 'CmdOrCtrl+C',
+					click: () => sendAccelerator('accelerator:copy-passages'),
+					label: i18n.t('common.copy', {defaultValue: 'Copy'})
+				},
+				{
+					accelerator: 'CmdOrCtrl+X',
+					click: () => sendAccelerator('accelerator:cut-passages'),
+					label: i18n.t('common.cut', {defaultValue: 'Cut'})
+				},
+				{
+					accelerator: 'CmdOrCtrl+V',
+					click: () => sendAccelerator('accelerator:paste-passages'),
+					label: i18n.t('common.paste', {defaultValue: 'Paste'})
 				}
 			]
 		},

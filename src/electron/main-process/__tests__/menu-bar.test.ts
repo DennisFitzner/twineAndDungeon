@@ -178,6 +178,27 @@ describe('initMenuBar', () => {
 			expect(sendAcceleratorMock).toHaveBeenCalledWith(
 				'accelerator:new-story-part'
 			);
+
+			const copyPassages = findMenuItem(submenu, 'common.copy');
+			expect(copyPassages?.accelerator).toBe('CmdOrCtrl+C');
+			invokeClick(copyPassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:copy-passages'
+			);
+
+			const cutPassages = findMenuItem(submenu, 'common.cut');
+			expect(cutPassages?.accelerator).toBe('CmdOrCtrl+X');
+			invokeClick(cutPassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:cut-passages'
+			);
+
+			const pastePassages = findMenuItem(submenu, 'common.paste');
+			expect(pastePassages?.accelerator).toBe('CmdOrCtrl+V');
+			invokeClick(pastePassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:paste-passages'
+			);
 		});
 
 		it('adds a Set Story Library Folder menu item to the application menu', () => {
@@ -405,6 +426,27 @@ describe('initMenuBar', () => {
 			invokeClick(newStoryPart);
 			expect(sendAcceleratorMock).toHaveBeenCalledWith(
 				'accelerator:new-story-part'
+			);
+
+			const copyPassages = findMenuItem(submenu, 'common.copy');
+			expect(copyPassages?.accelerator).toBe('CmdOrCtrl+C');
+			invokeClick(copyPassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:copy-passages'
+			);
+
+			const cutPassages = findMenuItem(submenu, 'common.cut');
+			expect(cutPassages?.accelerator).toBe('CmdOrCtrl+X');
+			invokeClick(cutPassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:cut-passages'
+			);
+
+			const pastePassages = findMenuItem(submenu, 'common.paste');
+			expect(pastePassages?.accelerator).toBe('CmdOrCtrl+V');
+			invokeClick(pastePassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:paste-passages'
 			);
 		});
 

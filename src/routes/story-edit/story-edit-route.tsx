@@ -16,6 +16,7 @@ import {PassageFuzzyFinder} from './passage-fuzzy-finder';
 import {StoryEditToolbar} from './toolbar';
 import {useInitialPassageCreation} from './use-initial-passage-creation';
 import {usePassageChangeHandlers} from './use-passage-change-handlers';
+import {usePassageClipboard} from './use-passage-clipboard';
 import {useViewCenter} from './use-view-center';
 import {useZoomShortcuts} from './use-zoom-shortcuts';
 import {useZoomTransition} from './use-zoom-transition';
@@ -439,6 +440,7 @@ export const InnerStoryEditRoute: React.FC = () => {
 	const visibleZoom = useZoomTransition(activeStory.zoom, mainContent.current);
 
 	useZoomShortcuts(activeStory);
+	usePassageClipboard(activeStory);
 	useInitialPassageCreation(activeStory, getCenter);
 
 	// Watch for new stories being added and switch to them if they're part of the current story folder

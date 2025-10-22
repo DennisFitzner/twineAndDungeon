@@ -66,5 +66,21 @@ contextBridge.exposeInMainWorld('twineElectron', {
 		ipcRenderer.on('accelerator:new-story-part', listener);
 		return () =>
 			ipcRenderer.removeListener('accelerator:new-story-part', listener);
+	},
+	onCopyPassagesShortcut(callback: () => void) {
+		const listener = () => callback();
+		ipcRenderer.on('accelerator:copy-passages', listener);
+		return () => ipcRenderer.removeListener('accelerator:copy-passages', listener);
+	},
+	onCutPassagesShortcut(callback: () => void) {
+		const listener = () => callback();
+		ipcRenderer.on('accelerator:cut-passages', listener);
+		return () => ipcRenderer.removeListener('accelerator:cut-passages', listener);
+	},
+	onPastePassagesShortcut(callback: () => void) {
+		const listener = () => callback();
+		ipcRenderer.on('accelerator:paste-passages', listener);
+		return () =>
+			ipcRenderer.removeListener('accelerator:paste-passages', listener);
 	}
 });
