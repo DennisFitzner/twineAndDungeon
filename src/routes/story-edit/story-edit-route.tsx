@@ -540,35 +540,52 @@ export const InnerStoryEditRoute: React.FC = () => {
 												props: importedStories[0]
 											});
 
-											// Wait for the component to re-render and then find the target story
-											// in the updated storyParts array
+											// Add to open tabs immediately
+											const folderName = story.storyFolderName || story.name;
+											const newOpenTabs = [
+												...openTabIfids,
+												importedStories[0].ifid
+											];
+											setOpenTabIfids(newOpenTabs);
+											addTab(folderName, importedStories[0].ifid);
+
+											// Switch to the new tab
+											setActivePartIfid(importedStories[0].ifid);
+											setActiveTab(folderName, importedStories[0].ifid);
+
+											// Wait for the component to re-render and then handle passage selection
 											setTimeout(() => {
-												// Find the target story in the updated storyParts array
-												const updatedTargetStory = storyParts.find(
-													p => p.id === importedStories[0].id
-												);
-
-												if (updatedTargetStory) {
-													// Switch tab if needed
-													if (updatedTargetStory.ifid !== activePartIfid) {
-														setActivePartIfid(updatedTargetStory.ifid);
+												if (targetPassageId) {
+													// Find the target passage in the newly loaded story
+													const targetPassage =
+														importedStories[0].passages.find(
+															p => p.id === targetPassageId
+														);
+													if (targetPassage) {
+														// Select the target passage
+														dispatch({
+															type: 'updatePassage',
+															storyId: importedStories[0].id,
+															passageId: targetPassage.id,
+															props: {selected: true}
+														});
 													}
-
-													if (targetPassageId) {
-														// Find the target passage
-														const targetPassage =
-															updatedTargetStory.passages.find(
-																p => p.id === targetPassageId
-															);
-														if (targetPassage) {
-															// Select the target passage
-															dispatch({
-																type: 'updatePassage',
-																storyId: updatedTargetStory.id,
-																passageId: targetPassage.id,
-																props: {selected: true}
-															});
-														}
+												} else if (options.fallbackPassageName) {
+													// Try to resolve by name if id was not supplied
+													const lower =
+														options.fallbackPassageName.toLowerCase();
+													const targetPassage =
+														importedStories[0].passages.find(
+															p => p.name.toLowerCase() === lower
+														);
+													if (targetPassage) {
+														// Select the target passage
+														dispatch({
+															type: 'updatePassage',
+															storyId: importedStories[0].id,
+															passageId: targetPassage.id,
+															props: {selected: true}
+														});
 													}
 												}
 											}, 100); // Small delay to allow component to re-render
@@ -661,16 +678,7 @@ export const InnerStoryEditRoute: React.FC = () => {
 	// Handle part closing
 	const handleClosePart = React.useCallback(
 		(partIfid: string) => {
-			const error = new Error();
-			console.error('=== handleClosePart CALLED ===');
-			console.error('Part IFID:', partIfid);
-			console.error('Open tabs:', openTabIfids);
-			console.error('Active tab:', activePartIfid);
-			console.error('Call stack:', error.stack);
-			console.error('=== END handleClosePart ===');
-
 			if (openTabIfids.length <= 1) {
-				console.log('Cannot close last tab');
 				return; // Don't close last tab
 			}
 
@@ -694,7 +702,6 @@ export const InnerStoryEditRoute: React.FC = () => {
 	// Handle creating new part
 	const handleCreatePart = React.useCallback(
 		async (partName: string) => {
-			console.log('handleCreatePart called with name:', partName);
 			if (!story.storyFolderName) {
 				console.error('Cannot create part: no story folder name');
 				return;
@@ -803,53 +810,23 @@ export const InnerStoryEditRoute: React.FC = () => {
 							const fileName =
 								filePath.split('/').pop()?.replace('.html', '') || 'Unknown';
 
-							console.log('=== handleSelectParts DEBUG ===');
-							console.log('File name:', fileName);
-							console.log('Imported story IFID:', importedStories[0].ifid);
-							console.log('Current openTabIfids:', openTabIfids);
-							console.log('Current activePartIfid:', activePartIfid);
-
-							// Get current openTabIfids from state to avoid stale closures
-							const currentOpenTabs = openTabIfids;
-							console.log('Current open tabs from state:', currentOpenTabs);
-
 							// Check if a story with this IFID already exists
 							const existingStory = stories.find(
 								s => s.ifid === importedStories[0].ifid
 							);
 
-							console.log('Existing story found:', !!existingStory);
-							if (existingStory) {
-								console.log('Existing story details:', {
-									name: existingStory.name,
-									partName: existingStory.partName,
-									ifid: existingStory.ifid
-								});
-							}
-
 							if (existingStory) {
 								// Story already exists, just add to tabs if not already open
 								const folderName = story.storyFolderName || story.name;
-								console.log('Story already exists, checking if in tabs...');
-								console.log(
-									'Is in openTabIfids?',
-									openTabIfids.includes(existingStory.ifid)
-								);
 
 								if (!openTabIfids.includes(existingStory.ifid)) {
-									console.log('Adding existing story to tabs');
 									const newOpenTabs = [...openTabIfids, existingStory.ifid];
 									setOpenTabIfids(newOpenTabs);
 									addTab(folderName, existingStory.ifid);
 									// Set as active tab when loading
 									setActivePartIfid(existingStory.ifid);
 									setActiveTab(folderName, existingStory.ifid);
-									console.log(
-										'Added existing story to tabs, new openTabs:',
-										newOpenTabs
-									);
 								} else {
-									console.log('Story already in tabs, making it active');
 									// Story already in tabs, make it active
 									setActivePartIfid(existingStory.ifid);
 									setActiveTab(folderName, existingStory.ifid);
@@ -860,12 +837,6 @@ export const InnerStoryEditRoute: React.FC = () => {
 								importedStories[0].partName = fileName;
 								importedStories[0].storyFolderName =
 									story.storyFolderName || story.name;
-
-								console.log('Creating new story:', {
-									fileName,
-									storyFolderName: importedStories[0].storyFolderName,
-									ifid: importedStories[0].ifid
-								});
 
 								// Add the new story to the store
 								dispatch({
@@ -881,10 +852,6 @@ export const InnerStoryEditRoute: React.FC = () => {
 								// Set as active tab when loading
 								setActivePartIfid(importedStories[0].ifid);
 								setActiveTab(folderName, importedStories[0].ifid);
-								console.log(
-									'Created new story and added to tabs:',
-									importedStories[0].ifid
-								);
 							}
 
 							// Log the story part operation
