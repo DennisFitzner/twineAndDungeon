@@ -57,16 +57,16 @@ export const PassageConnections: React.FC<PassageConnectionsProps> = props => {
 		// Interlink cards should connect to the passage that contains the cross-part link (source passage)
 		interlinkCards.forEach(interlinkCard => {
 			const targetStoryTag = interlinkCard.tags.find(tag =>
-				tag.startsWith('target-story:')
+				tag.startsWith('target-story-name:')
 			);
 			const targetPassageTag = interlinkCard.tags.find(tag =>
-				tag.startsWith('target-passage:')
+				tag.startsWith('target-passage-name:')
 			);
 
 			if (targetStoryTag && targetPassageTag) {
-				const targetStoryName = targetStoryTag.replace('target-story:', '');
+				const targetStoryName = targetStoryTag.replace('target-story-name:', '');
 				const targetPassageName = targetPassageTag.replace(
-					'target-passage:',
+					'target-passage-name:',
 					''
 				);
 

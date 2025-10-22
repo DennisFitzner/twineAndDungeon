@@ -23,6 +23,19 @@ import {onNavigateTo} from '../../store/navigation-events';
 import {parseLinks, parseCrossPartLinkTarget} from '../../util/parse-links';
 import {importStories} from '../../util/import';
 import './story-edit-route.css';
+import {storyPartsLogger} from '../../util/story-parts-logger';
+import {
+	validateCrossLinkTarget,
+	generateCrossLinkTags
+} from '../../util/ifid-cross-link-utils';
+import {
+	getOpenTabs,
+	setOpenTabs,
+	getActiveTab,
+	setActiveTab,
+	addTab,
+	removeTab
+} from '../../util/tab-state-manager';
 
 export const InnerStoryEditRoute: React.FC = () => {
 	const {storyId} = useParams<{storyId: string}>();
@@ -30,8 +43,12 @@ export const InnerStoryEditRoute: React.FC = () => {
 	const story = storyWithId(stories, storyId);
 	const {dispatch: dialogsDispatch} = useDialogsContext();
 	const [fuzzyFinderOpen, setFuzzyFinderOpen] = React.useState(false);
-	const [activePartId, setActivePartId] = React.useState(storyId);
-	const [closedParts, setClosedParts] = React.useState<Set<string>>(new Set());
+	const [activePartIfid, setActivePartIfid] = React.useState(story.ifid);
+	const [openTabIfids, setOpenTabIfids] = React.useState<string[]>([]);
+	const [tabsInitialized, setTabsInitialized] = React.useState(false);
+	const [lastStoriesCount, setLastStoriesCount] = React.useState(
+		stories.length
+	);
 	const mainContent = React.useRef<HTMLDivElement>(null);
 
 	// Get all story parts for the current story folder
@@ -44,24 +61,134 @@ export const InnerStoryEditRoute: React.FC = () => {
 			story.storyFolderName = folderName;
 		}
 
-		const parts = stories
-			.filter(s => {
-				const sFolderName = s.storyFolderName || s.name;
-				return sFolderName === folderName;
-			})
-			.filter(part => !closedParts.has(part.id));
+		const allPartsInFolder = stories.filter(s => {
+			const sFolderName = s.storyFolderName || s.name;
+			return sFolderName === folderName;
+		});
+
+		// Filter to only open tabs
+		const parts = allPartsInFolder.filter(part =>
+			openTabIfids.includes(part.ifid)
+		);
+
+		// Debug logging for story parts filtering
+		console.log('Story parts filtering:', {
+			folderName,
+			totalStories: stories.length,
+			allPartsInFolder: allPartsInFolder.length,
+			filteredParts: parts.length,
+			storyDetails: allPartsInFolder.map(s => ({
+				name: s.name,
+				partName: s.partName,
+				storyFolderName: s.storyFolderName,
+				ifid: s.ifid
+			})),
+			allStories: stories.map(s => ({
+				name: s.name,
+				partName: s.partName,
+				storyFolderName: s.storyFolderName,
+				ifid: s.ifid
+			}))
+		});
+
+		// Log story parts array operations
+		storyPartsLogger.logStoryParts({
+			storyId: story.id,
+			storyName: story.name,
+			partName: story.partName,
+			operation: 'filter_story_parts',
+			details: {
+				folderName,
+				totalStories: stories.length,
+				partsInFolder: allPartsInFolder.length,
+				filteredParts: parts.length,
+				openTabs: openTabIfids,
+				partNames: parts.map(p => p.partName || p.name)
+			}
+		});
 
 		return parts;
-	}, [stories, story.storyFolderName, story, closedParts]);
+	}, [
+		stories,
+		story.storyFolderName,
+		story.name,
+		openTabIfids,
+		stories.length
+	]);
 
 	// Get the currently active story part
 	const activeStory = React.useMemo(() => {
-		return (
-			storyParts.find(part => part.id === activePartId) ||
+		const selectedStory =
+			storyParts.find(part => part.ifid === activePartIfid) ||
 			storyParts[0] ||
-			story
-		);
-	}, [storyParts, activePartId, story]);
+			story;
+
+		// Log active story selection
+		storyPartsLogger.logStoryParts({
+			storyId: selectedStory.id,
+			storyName: selectedStory.name,
+			partName: selectedStory.partName,
+			operation: 'select_active_story',
+			details: {
+				activePartIfid,
+				availableParts: storyParts.map(p => ({
+					ifid: p.ifid,
+					name: p.partName || p.name
+				})),
+				selectedStoryIfid: selectedStory.ifid,
+				identificationMethod: 'ifid-based'
+			}
+		});
+
+		return selectedStory;
+	}, [storyParts, activePartIfid, story]);
+
+	// Initialize tabs from localStorage or default to main part only (only once on mount)
+	React.useEffect(() => {
+		// Initialize tabs from localStorage or default to main part only
+
+		if (tabsInitialized) return;
+
+		const folderName = story.storyFolderName || story.name;
+		const savedTabs = getOpenTabs(folderName);
+
+		if (savedTabs.length > 0) {
+			// Restore saved tabs - filter to only include stories that exist
+			const validTabs = savedTabs.filter(ifid =>
+				stories.some(s => s.ifid === ifid)
+			);
+
+			if (validTabs.length > 0) {
+				setOpenTabIfids(validTabs);
+				const savedActiveTab = getActiveTab(folderName);
+				if (savedActiveTab && validTabs.includes(savedActiveTab)) {
+					setActivePartIfid(savedActiveTab);
+				} else {
+					setActivePartIfid(validTabs[0]);
+				}
+			}
+		} else {
+			// Default: open only main part (matching folder name)
+			const allPartsInFolder = stories.filter(s => {
+				const sFolderName = s.storyFolderName || s.name;
+				return sFolderName === folderName;
+			});
+
+			const mainPart =
+				allPartsInFolder.find(s => (s.partName || s.name) === folderName) ||
+				allPartsInFolder[0];
+
+			if (mainPart) {
+				setOpenTabIfids([mainPart.ifid]);
+				setActivePartIfid(mainPart.ifid);
+				setOpenTabs(folderName, [mainPart.ifid]);
+				setActiveTab(folderName, mainPart.ifid);
+			}
+		}
+
+		setTabsInitialized(true);
+		// Only run once - remove 'stories' from dependencies
+	}, [story.storyFolderName, story.name, tabsInitialized]);
 
 	// Generate backlink cards automatically when cross-part links are detected
 	React.useEffect(() => {
@@ -75,6 +202,22 @@ export const InnerStoryEditRoute: React.FC = () => {
 			tags: string[];
 		}> = [];
 
+		let crossLinkScanCount = 0;
+		let backlinkDetectionCount = 0;
+
+		// Log cross-link scan start
+		storyPartsLogger.logCrossLink({
+			sourceStoryId: activeStory.id,
+			sourceStoryName: activeStory.name,
+			linkType: 'backlink',
+			passageName: 'scan_start',
+			operation: 'scan_cross_links',
+			details: {
+				totalStoryParts: storyParts.length,
+				activeStoryName: activeStory.partName || activeStory.name
+			}
+		});
+
 		// Scan all other story parts for cross-part links that point to the current story
 		storyParts.forEach(otherStory => {
 			if (otherStory.id === activeStory.id) return; // Skip current story
@@ -82,59 +225,171 @@ export const InnerStoryEditRoute: React.FC = () => {
 			otherStory.passages.forEach(otherPassage => {
 				const links = parseLinks(otherPassage.text);
 				links.forEach(linkText => {
+					crossLinkScanCount++;
 					const crossPartTarget = parseCrossPartLinkTarget(`[[${linkText}]]`);
 					if (crossPartTarget && crossPartTarget.part) {
+						// Validate the cross-link target using IFID-based lookup
+						const validation = validateCrossLinkTarget(
+							storyParts,
+							crossPartTarget.part,
+							crossPartTarget.passage
+						);
+
 						// Check if this link points to the current story
-						const currentStoryName = activeStory.partName || activeStory.name;
-						if (
-							crossPartTarget.part.toLowerCase() ===
-							currentStoryName.toLowerCase()
-						) {
-							// Find the target passage in the current story
-							const targetPassage = activeStory.passages.find(
-								p =>
-									p.name.toLowerCase() === crossPartTarget.passage.toLowerCase()
-							);
+						if (validation.isValid && validation.story && validation.passage) {
+							const currentStoryName = activeStory.partName || activeStory.name;
+							const targetStoryName =
+								validation.story.partName || validation.story.name;
 
-							if (targetPassage) {
-								// Check if backlink card already exists
-								const backlinkName = `← ${targetPassage.name}`;
-								const existingBacklink = activeStory.passages.find(
-									p => p.name === backlinkName
-								);
+							if (
+								targetStoryName.toLowerCase() === currentStoryName.toLowerCase()
+							) {
+								backlinkDetectionCount++;
 
-								if (!existingBacklink) {
-									// Queue backlink card for creation in the current story
-									backlinkCardsToCreate.push({
-										name: backlinkName,
-										text: `Back-reference from ${
-											otherStory.partName || otherStory.name
-										}:${otherPassage.name}`,
-										left: targetPassage.left + 200,
-										top: targetPassage.top + 100,
-										tags: [
+								// Log backlink detection
+								storyPartsLogger.logCrossLink({
+									sourceStoryId: otherStory.id,
+									sourceStoryName: otherStory.name,
+									targetStoryId: activeStory.id,
+									targetStoryName: activeStory.name,
+									linkType: 'backlink',
+									passageName: otherPassage.name,
+									operation: 'detect_backlink',
+									details: {
+										linkText,
+										targetPassage: crossPartTarget.passage,
+										sourcePassage: otherPassage.name,
+										targetStoryIfid: validation.story.ifid,
+										validationMethod: 'ifid-based'
+									}
+								});
+
+								// Find the target passage in the current story
+								const targetPassage = validation.passage;
+
+								if (targetPassage) {
+									// Check if backlink card already exists
+									const backlinkName = `← ${targetPassage.name}`;
+									const existingBacklink = activeStory.passages.find(
+										p => p.name === backlinkName
+									);
+
+									if (!existingBacklink) {
+										// Generate IFID-based tags
+										const tags = generateCrossLinkTags(
+											otherStory,
+											otherPassage,
 											'backlink',
-											`source-story:${otherStory.id}`,
-											`source-passage:${otherPassage.id}`
-										]
-									});
+											activeStory,
+											targetPassage
+										);
+
+										// Queue backlink card for creation in the current story
+										backlinkCardsToCreate.push({
+											name: backlinkName,
+											text: `Back-reference from ${
+												otherStory.partName || otherStory.name
+											}:${otherPassage.name}`,
+											left: targetPassage.left + 200,
+											top: targetPassage.top + 100,
+											tags
+										});
+
+										// Log backlink card creation
+										storyPartsLogger.logCrossLink({
+											sourceStoryId: otherStory.id,
+											sourceStoryName: otherStory.name,
+											targetStoryId: activeStory.id,
+											targetStoryName: activeStory.name,
+											linkType: 'backlink',
+											passageName: backlinkName,
+											operation: 'create_backlink_card',
+											details: {
+												targetPassage: targetPassage.name,
+												sourcePassage: otherPassage.name,
+												position: {
+													left: targetPassage.left + 200,
+													top: targetPassage.top + 100
+												},
+												tags,
+												validationMethod: 'ifid-based'
+											}
+										});
+									} else {
+										// Log existing backlink card
+										storyPartsLogger.logCrossLink({
+											sourceStoryId: otherStory.id,
+											sourceStoryName: otherStory.name,
+											targetStoryId: activeStory.id,
+											targetStoryName: activeStory.name,
+											linkType: 'backlink',
+											passageName: backlinkName,
+											operation: 'backlink_card_exists',
+											details: {
+												targetPassage: targetPassage.name,
+												sourcePassage: otherPassage.name,
+												validationMethod: 'ifid-based'
+											}
+										});
+									}
 								}
 							}
+						} else {
+							// Log invalid cross-link
+							storyPartsLogger.logCrossLink({
+								sourceStoryId: otherStory.id,
+								sourceStoryName: otherStory.name,
+								linkType: 'backlink',
+								passageName: otherPassage.name,
+								operation: 'invalid_cross_link',
+								details: {
+									linkText,
+									targetStory: crossPartTarget.part,
+									targetPassage: crossPartTarget.passage,
+									reason: 'target_not_found'
+								}
+							});
 						}
 					}
 				});
 			});
 		});
 
+		// Log cross-link scan completion
+		storyPartsLogger.logCrossLink({
+			sourceStoryId: activeStory.id,
+			sourceStoryName: activeStory.name,
+			linkType: 'backlink',
+			passageName: 'scan_complete',
+			operation: 'scan_cross_links_complete',
+			details: {
+				scannedLinks: crossLinkScanCount,
+				detectedBacklinks: backlinkDetectionCount,
+				backlinkCardsToCreate: backlinkCardsToCreate.length,
+				backlinkCardNames: backlinkCardsToCreate.map(card => card.name)
+			}
+		});
+
 		// Create all backlink cards at once
 		if (backlinkCardsToCreate.length > 0) {
+			storyPartsLogger.logStoryParts({
+				storyId: activeStory.id,
+				storyName: activeStory.name,
+				partName: activeStory.partName,
+				operation: 'create_backlink_cards',
+				details: {
+					cardCount: backlinkCardsToCreate.length,
+					cardNames: backlinkCardsToCreate.map(card => card.name)
+				}
+			});
+
 			dispatch({
 				type: 'createPassages',
 				storyId: activeStory.id,
 				props: backlinkCardsToCreate
 			});
 		}
-	}, [storyParts, dispatch, activePartId]); // Added activePartId to trigger when switching story parts
+	}, [storyParts, dispatch, activePartIfid]); // Added activePartIfid to trigger when switching story parts
 
 	// Custom connection parser that handles cross-part links and back-references
 	const crossPartConnectionParser = React.useCallback(
@@ -185,6 +440,42 @@ export const InnerStoryEditRoute: React.FC = () => {
 
 	useZoomShortcuts(activeStory);
 	useInitialPassageCreation(activeStory, getCenter);
+
+	// Watch for new stories being added and switch to them if they're part of the current story folder
+	React.useEffect(() => {
+		// Only switch if the number of stories has actually increased (new story added)
+		if (stories.length > lastStoriesCount) {
+			const folderName = story.storyFolderName || story.name;
+			const newStories = stories.filter(s => {
+				const sFolderName = s.storyFolderName || s.name;
+				return sFolderName === folderName && s.ifid !== story.ifid;
+			});
+
+			// If there are new stories in the same folder, switch to the most recent one
+			// But only if it's not already in our open tabs (to avoid conflicts with manual loading)
+			if (newStories.length > 0) {
+				const newestStory = newStories[newStories.length - 1];
+				// Only auto-switch if the story is not already in open tabs
+				if (!openTabIfids.includes(newestStory.ifid)) {
+					console.log(
+						'Switching to newly loaded story part:',
+						newestStory.partName || newestStory.name
+					);
+					setActivePartIfid(newestStory.ifid);
+				}
+			}
+		}
+
+		// Update the count
+		setLastStoriesCount(stories.length);
+	}, [
+		stories,
+		story.storyFolderName,
+		story.name,
+		story.ifid,
+		lastStoriesCount,
+		openTabIfids
+	]);
 
 	// Cross-part navigation subscription
 	React.useEffect(() => {
@@ -259,8 +550,8 @@ export const InnerStoryEditRoute: React.FC = () => {
 
 												if (updatedTargetStory) {
 													// Switch tab if needed
-													if (updatedTargetStory.id !== activePartId) {
-														setActivePartId(updatedTargetStory.id);
+													if (updatedTargetStory.ifid !== activePartIfid) {
+														setActivePartIfid(updatedTargetStory.ifid);
 													}
 
 													if (targetPassageId) {
@@ -295,9 +586,19 @@ export const InnerStoryEditRoute: React.FC = () => {
 
 					if (!targetStory) return;
 
+					// Open tab if not already open
+					if (!openTabIfids.includes(targetStory.ifid)) {
+						const folderName = story.storyFolderName || story.name;
+						const newOpenTabs = [...openTabIfids, targetStory.ifid];
+						setOpenTabIfids(newOpenTabs);
+						addTab(folderName, targetStory.ifid);
+					}
+
 					// Switch tab if needed
-					if (targetStory.id !== activePartId) {
-						setActivePartId(targetStory.id);
+					if (targetStory.ifid !== activePartIfid) {
+						setActivePartIfid(targetStory.ifid);
+						const folderName = story.storyFolderName || story.name;
+						setActiveTab(folderName, targetStory.ifid);
 					}
 
 					if (targetPassageId) {
@@ -337,43 +638,57 @@ export const InnerStoryEditRoute: React.FC = () => {
 
 		return unsubscribe;
 	}, [
-		activePartId,
+		activePartIfid,
 		storyParts,
 		setCenter,
 		handleSelectPassage,
 		handleEditPassage,
 		story,
-		dispatch
+		dispatch,
+		openTabIfids
 	]);
 
 	// Handle part selection
-	const handleSelectPart = React.useCallback((partId: string) => {
-		setActivePartId(partId);
-	}, []);
+	const handleSelectPart = React.useCallback(
+		(partIfid: string) => {
+			const folderName = story.storyFolderName || story.name;
+			setActivePartIfid(partIfid);
+			setActiveTab(folderName, partIfid);
+		},
+		[story.storyFolderName, story.name]
+	);
 
 	// Handle part closing
 	const handleClosePart = React.useCallback(
-		(partId: string) => {
-			const partToClose = storyParts.find(part => part.id === partId);
-			if (!partToClose) return;
+		(partIfid: string) => {
+			const error = new Error();
+			console.error('=== handleClosePart CALLED ===');
+			console.error('Part IFID:', partIfid);
+			console.error('Open tabs:', openTabIfids);
+			console.error('Active tab:', activePartIfid);
+			console.error('Call stack:', error.stack);
+			console.error('=== END handleClosePart ===');
 
-			// If this is the last part, don't allow closing
-			if (storyParts.length <= 1) {
-				return;
+			if (openTabIfids.length <= 1) {
+				console.log('Cannot close last tab');
+				return; // Don't close last tab
 			}
 
-			// If we're closing the active part, switch to another part
-			if (partId === activePartId) {
-				const remainingParts = storyParts.filter(part => part.id !== partId);
-				if (remainingParts.length > 0) {
-					setActivePartId(remainingParts[0].id);
-				}
-			}
+			const folderName = story.storyFolderName || story.name;
+			const newOpenTabs = openTabIfids.filter(id => id !== partIfid);
 
-			// Add the part to the closed parts set (don't delete the file)
-			setClosedParts(prev => new Set([...prev, partId]));
+			// Update state
+			setOpenTabIfids(newOpenTabs);
+			removeTab(folderName, partIfid);
+
+			// Switch to another tab if closing active
+			if (partIfid === activePartIfid && newOpenTabs.length > 0) {
+				const newActiveIfid = newOpenTabs[0];
+				setActivePartIfid(newActiveIfid);
+				setActiveTab(folderName, newActiveIfid);
+			}
 		},
-		[storyParts, activePartId]
+		[openTabIfids, activePartIfid, story.storyFolderName, story.name]
 	);
 
 	// Handle creating new part
@@ -424,14 +739,35 @@ export const InnerStoryEditRoute: React.FC = () => {
 							importedStories[0].partName = newStoryFile.partName;
 							importedStories[0].storyFolderName = newStoryFile.storyFolderName;
 
-							// Add the new story to the store
-							dispatch({
-								type: 'createStory',
-								props: importedStories[0]
-							});
+							// Check if story already exists
+							const existingStory = stories.find(
+								s => s.ifid === importedStories[0].ifid
+							);
 
-							// Switch to the new part
-							setActivePartId(importedStories[0].id);
+							if (!existingStory) {
+								// Add the new story to the store
+								dispatch({
+									type: 'createStory',
+									props: importedStories[0]
+								});
+							}
+
+							// Add as a new tab (only if not already open)
+							const folderName = story.storyFolderName || story.name;
+							const storyIfid = existingStory?.ifid || importedStories[0].ifid;
+							if (!openTabIfids.includes(storyIfid)) {
+								const newOpenTabs = [...openTabIfids, storyIfid];
+								setOpenTabIfids(newOpenTabs);
+								addTab(folderName, storyIfid);
+								console.log(
+									'Added story to tabs:',
+									storyIfid,
+									existingStory ? '(existing)' : '(new)'
+								);
+							} else {
+								console.log('Story already in tabs, skipping:', storyIfid);
+							}
+							// Don't switch active tab - keep the current one active
 						}
 					}
 				}
@@ -439,7 +775,144 @@ export const InnerStoryEditRoute: React.FC = () => {
 				console.error('Failed to create story part:', error);
 			}
 		},
-		[story.storyFolderName, storyParts, dispatch]
+		[story.storyFolderName, storyParts, dispatch, openTabIfids]
+	);
+
+	// Handle selecting parts from the browser
+	const handleSelectParts = React.useCallback(
+		async (selectedPaths: string[]) => {
+			const {twineElectron} = window as TwineElectronWindow;
+			if (!twineElectron) {
+				console.error('Electron bridge not available');
+				return;
+			}
+
+			try {
+				// Load each selected file and add it as a story part
+				for (const filePath of selectedPaths) {
+					try {
+						// Read the HTML file content
+						const fileContent = await twineElectron.readFile(filePath);
+
+						// Parse the HTML content into a Story object
+						const {importStories} = await import('../../util/import');
+						const importedStories = importStories(fileContent);
+
+						if (importedStories[0]) {
+							// Extract filename from path (without .html extension)
+							const fileName =
+								filePath.split('/').pop()?.replace('.html', '') || 'Unknown';
+
+							console.log('=== handleSelectParts DEBUG ===');
+							console.log('File name:', fileName);
+							console.log('Imported story IFID:', importedStories[0].ifid);
+							console.log('Current openTabIfids:', openTabIfids);
+							console.log('Current activePartIfid:', activePartIfid);
+
+							// Get current openTabIfids from state to avoid stale closures
+							const currentOpenTabs = openTabIfids;
+							console.log('Current open tabs from state:', currentOpenTabs);
+
+							// Check if a story with this IFID already exists
+							const existingStory = stories.find(
+								s => s.ifid === importedStories[0].ifid
+							);
+
+							console.log('Existing story found:', !!existingStory);
+							if (existingStory) {
+								console.log('Existing story details:', {
+									name: existingStory.name,
+									partName: existingStory.partName,
+									ifid: existingStory.ifid
+								});
+							}
+
+							if (existingStory) {
+								// Story already exists, just add to tabs if not already open
+								const folderName = story.storyFolderName || story.name;
+								console.log('Story already exists, checking if in tabs...');
+								console.log(
+									'Is in openTabIfids?',
+									openTabIfids.includes(existingStory.ifid)
+								);
+
+								if (!openTabIfids.includes(existingStory.ifid)) {
+									console.log('Adding existing story to tabs');
+									const newOpenTabs = [...openTabIfids, existingStory.ifid];
+									setOpenTabIfids(newOpenTabs);
+									addTab(folderName, existingStory.ifid);
+									// Set as active tab when loading
+									setActivePartIfid(existingStory.ifid);
+									setActiveTab(folderName, existingStory.ifid);
+									console.log(
+										'Added existing story to tabs, new openTabs:',
+										newOpenTabs
+									);
+								} else {
+									console.log('Story already in tabs, making it active');
+									// Story already in tabs, make it active
+									setActivePartIfid(existingStory.ifid);
+									setActiveTab(folderName, existingStory.ifid);
+								}
+							} else {
+								// Story doesn't exist, create it
+								// Set the part metadata (no timestamp needed)
+								importedStories[0].partName = fileName;
+								importedStories[0].storyFolderName =
+									story.storyFolderName || story.name;
+
+								console.log('Creating new story:', {
+									fileName,
+									storyFolderName: importedStories[0].storyFolderName,
+									ifid: importedStories[0].ifid
+								});
+
+								// Add the new story to the store
+								dispatch({
+									type: 'createStory',
+									props: importedStories[0]
+								});
+
+								// Add as a new tab and set as active
+								const folderName = story.storyFolderName || story.name;
+								const newOpenTabs = [...openTabIfids, importedStories[0].ifid];
+								setOpenTabIfids(newOpenTabs);
+								addTab(folderName, importedStories[0].ifid);
+								// Set as active tab when loading
+								setActivePartIfid(importedStories[0].ifid);
+								setActiveTab(folderName, importedStories[0].ifid);
+								console.log(
+									'Created new story and added to tabs:',
+									importedStories[0].ifid
+								);
+							}
+
+							// Log the story part operation
+							const storyToLog = existingStory || importedStories[0];
+							storyPartsLogger.logStoryParts({
+								storyId: storyToLog.id,
+								storyName: storyToLog.name,
+								partName: storyToLog.partName,
+								operation: existingStory ? 'add_to_tabs' : 'create_passages',
+								details: {
+									storyFolderName: storyToLog.storyFolderName,
+									ifid: storyToLog.ifid,
+									fileName,
+									wasExisting: !!existingStory
+								}
+							});
+
+							// The useEffect above will handle switching to the new story part
+						}
+					} catch (error) {
+						console.error(`Failed to load file ${filePath}:`, error);
+					}
+				}
+			} catch (error) {
+				console.error('Failed to load story parts:', error);
+			}
+		},
+		[story.storyFolderName, story.name, dispatch, openTabIfids, stories]
 	);
 
 	// Handle loading story parts from custom browser
@@ -470,60 +943,7 @@ export const InnerStoryEditRoute: React.FC = () => {
 		} catch (error) {
 			console.error('Failed to scan story parts:', error);
 		}
-	}, [story.storyFolderName, story.name, dialogsDispatch]);
-
-	// Handle selecting parts from the browser
-	const handleSelectParts = React.useCallback(
-		async (selectedPaths: string[]) => {
-			const {twineElectron} = window as TwineElectronWindow;
-			if (!twineElectron) {
-				console.error('Electron bridge not available');
-				return;
-			}
-
-			try {
-				// Load each selected file and add it as a story part
-				for (const filePath of selectedPaths) {
-					try {
-						// Read the HTML file content
-						const fileContent = await twineElectron.readFile(filePath);
-
-						// Parse the HTML content into a Story object
-						const {importStories} = await import('../../util/import');
-						const importedStories = importStories(fileContent);
-
-						if (importedStories[0]) {
-							// Extract filename from path (without .html extension)
-							const fileName =
-								filePath.split('/').pop()?.replace('.html', '') || 'Unknown';
-
-							// Generate a unique name to avoid conflicts
-							// Use a timestamp-based approach to ensure uniqueness
-							const timestamp = Date.now();
-							const uniqueName = `${fileName}_${timestamp}`;
-
-							// Set the part metadata
-							importedStories[0].name = uniqueName;
-							importedStories[0].partName = fileName;
-							importedStories[0].storyFolderName =
-								story.storyFolderName || story.name;
-
-							// Add the new story to the store
-							dispatch({
-								type: 'createStory',
-								props: importedStories[0]
-							});
-						}
-					} catch (error) {
-						console.error(`Failed to load file ${filePath}:`, error);
-					}
-				}
-			} catch (error) {
-				console.error('Failed to load story parts:', error);
-			}
-		},
-		[story.storyFolderName, story.name, dispatch]
-	);
+	}, [story, dialogsDispatch, handleSelectParts]);
 
 	return (
 		<div className="story-edit-route">
@@ -533,7 +953,7 @@ export const InnerStoryEditRoute: React.FC = () => {
 				onOpenFuzzyFinder={() => setFuzzyFinderOpen(true)}
 				story={activeStory}
 				storyParts={storyParts}
-				activePartId={activePartId}
+				activePartIfid={activePartIfid}
 				onSelectPart={handleSelectPart}
 				onClosePart={handleClosePart}
 				onCreatePart={handleCreatePart}

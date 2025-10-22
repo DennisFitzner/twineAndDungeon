@@ -55,9 +55,9 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		if (isInterlink) {
 			// For interlink cards, extract from tags
 			const targetStoryTag = passage.tags.find(tag =>
-				tag.startsWith('target-story:')
+				tag.startsWith('target-story-name:')
 			);
-			return targetStoryTag ? targetStoryTag.replace('target-story:', '') : '';
+			return targetStoryTag ? targetStoryTag.replace('target-story-name:', '') : '';
 		} else if (isBackReference) {
 			// For backlink cards, extract from the back-reference text
 			const backRefMatch = passage.text.match(/Back-reference from (.+):/);
@@ -182,15 +182,15 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		if (isInterlink) {
 			// Extract target story and passage from tags
 			const targetStoryTag = passage.tags.find(tag =>
-				tag.startsWith('target-story:')
+				tag.startsWith('target-story-name:')
 			);
 			const targetPassageTag = passage.tags.find(tag =>
-				tag.startsWith('target-passage:')
+				tag.startsWith('target-passage-name:')
 			);
 
 			if (targetStoryTag && targetPassageTag) {
-				const targetStory = targetStoryTag.replace('target-story:', '');
-				const targetPassage = targetPassageTag.replace('target-passage:', '');
+				const targetStory = targetStoryTag.replace('target-story-name:', '');
+				const targetPassage = targetPassageTag.replace('target-passage-name:', '');
 
 				emitNavigateTo(targetStory, undefined, {
 					openEditor: true,
