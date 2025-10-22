@@ -10,6 +10,7 @@ import {
 	writeFile
 } from 'fs-extra';
 import {basename, join} from 'path';
+import {v4 as uuid} from '@lukeed/uuid';
 import {i18n} from './locales';
 import {getStoryDirectoryPath} from './story-directory';
 import {Story} from '../../store/stories/stories.types';
@@ -254,26 +255,28 @@ export async function createStoryPart(
 			// File doesn't exist, which is what we want
 		}
 
-		// Create a minimal HTML file for the new part
-		const minimalHtml = `<!DOCTYPE html>
+		// Create a proper Twine story structure
+		const ifid = uuid().toUpperCase();
+
+		// Create a proper Twine story HTML with story data
+		const storyHtml = `<!DOCTYPE html>
 <html>
 <head>
 	<title>${partName}</title>
 </head>
 <body>
-	<div id="story">
-		<div id="passages">
-			<div class="passage" data-name="Start" data-tags="">
-				<div class="passage-content">
-					<p>Welcome to ${partName}!</p>
-				</div>
-			</div>
-		</div>
-	</div>
+	<tw-storydata name="${partName}" startnode="1" creator="Twine" creator-version="2.10.0" format="Harlowe" format-version="3.3.9" ifid="${ifid}" options="" tags="" zoom="1" hidden>
+		<tw-passagedata pid="1" name="Start" tags="" position="100,100" size="100,100">Welcome to ${partName}!
+
+[[Continue|Continue]]</tw-passagedata>
+		<tw-passagedata pid="2" name="Continue" tags="" position="300,100" size="100,100">This is the beginning of your story part.
+
+[[Back to Start|Start]]</tw-passagedata>
+	</tw-storydata>
 </body>
 </html>`;
 
-		await writeFile(partFilePath, minimalHtml, 'utf8');
+		await writeFile(partFilePath, storyHtml, 'utf8');
 		await fileWasTouched(partFilePath);
 		console.log(`Successfully created story part ${partFilePath}`);
 	} catch (e) {

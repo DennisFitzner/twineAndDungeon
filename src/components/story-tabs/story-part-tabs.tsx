@@ -1,8 +1,9 @@
-import {IconPlus, IconX} from '@tabler/icons';
+import {IconX} from '@tabler/icons';
 import * as React from 'react';
 import {useTranslation} from 'react-i18next';
 import {Story} from '../../store/stories/stories.types';
 import {IconButton} from '../control/icon-button';
+import {CreateStoryPartButton} from './create-story-part-button';
 import './story-part-tabs.css';
 
 export interface StoryPartTabsProps {
@@ -25,7 +26,7 @@ export interface StoryPartTabsProps {
 	/**
 	 * Callback when a new part should be created
 	 */
-	onCreatePart: () => void;
+	onCreatePart: (partName: string) => void;
 }
 
 export const StoryPartTabs: React.FC<StoryPartTabsProps> = props => {
@@ -69,13 +70,10 @@ export const StoryPartTabs: React.FC<StoryPartTabsProps> = props => {
 						/>
 					</div>
 				))}
-				<button
-					className="story-part-add-button"
-					onClick={onCreatePart}
-					title={t('storyPartTabs.createNewPart')}
-				>
-					<IconPlus />
-				</button>
+				<CreateStoryPartButton
+					storyParts={storyParts}
+					onCreatePart={onCreatePart || (() => {})}
+				/>
 			</div>
 		</div>
 	);

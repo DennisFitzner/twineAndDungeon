@@ -18,7 +18,7 @@ export interface StoryEditToolbarProps {
 	activePartId?: string;
 	onSelectPart?: (partId: string) => void;
 	onClosePart?: (partId: string) => void;
-	onCreatePart?: () => void;
+	onCreatePart?: (partName: string) => void;
 	onLoadParts?: () => void;
 }
 
@@ -65,7 +65,7 @@ export const StoryEditToolbar: React.FC<StoryEditToolbarProps> = props => {
 						activePartId={activePartId || story.id}
 						onSelectPart={onSelectPart || (() => {})}
 						onClosePart={onClosePart || (() => {})}
-						onCreatePart={onCreatePart || (() => {})}
+						onCreatePart={onCreatePart || ((_partName: string) => {})} // eslint-disable-line @typescript-eslint/no-unused-vars
 					/>
 				) : undefined
 			}

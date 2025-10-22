@@ -453,7 +453,10 @@
 		"replaceAllText": "Replace All"
 	},
 	"storyPartTabs": {
-		"createNewPart": "Create New Part"
+		"createNewPart": "Create New Part",
+		"createPartPrompt": "What should the new story part be named?",
+		"emptyName": "Story part name cannot be empty",
+		"nameConflict": "A story part with this name already exists"
 	},
 	"storyActions": {
 		"loadStoryParts": "Load Story Parts"

@@ -377,78 +377,70 @@ export const InnerStoryEditRoute: React.FC = () => {
 	);
 
 	// Handle creating new part
-	const handleCreatePart = React.useCallback(async () => {
-		console.log('handleCreatePart called');
-		if (!story.storyFolderName) {
-			console.error('Cannot create part: no story folder name');
-			return;
-		}
-
-		const {twineElectron} = window as TwineElectronWindow;
-		if (!twineElectron) {
-			console.error('Electron bridge not available');
-			return;
-		}
-
-		try {
-			// Generate a unique part name
-			const existingPartNames = storyParts.map(
-				part => part.partName || part.name
-			);
-			let partName = 'New Part';
-			let counter = 1;
-			while (existingPartNames.includes(partName)) {
-				partName = `New Part ${counter}`;
-				counter++;
+	const handleCreatePart = React.useCallback(
+		async (partName: string) => {
+			console.log('handleCreatePart called with name:', partName);
+			if (!story.storyFolderName) {
+				console.error('Cannot create part: no story folder name');
+				return;
 			}
 
-			console.log(
-				'Creating story part:',
-				partName,
-				'in folder:',
-				story.storyFolderName
-			);
-			await twineElectron.createStoryPart(story.storyFolderName, partName);
+			const {twineElectron} = window as TwineElectronWindow;
+			if (!twineElectron) {
+				console.error('Electron bridge not available');
+				return;
+			}
 
-			// Load the newly created story part and add it to the store
-			const newStories = await twineElectron.loadStories();
-			if (newStories && Array.isArray(newStories)) {
-				// Find the newly created story part
-				const newStoryFile = newStories.find(
-					file =>
-						file.partName === partName &&
-						file.storyFolderName === story.storyFolderName
+			try {
+				console.log(
+					'Creating story part:',
+					partName,
+					'in folder:',
+					story.storyFolderName
 				);
+				await twineElectron.createStoryPart(story.storyFolderName, partName);
 
-				if (newStoryFile) {
-					// Import the story using the same logic as the initial load
-					const {importStories} = await import('../../util/import');
-					const importedStories = importStories(
-						newStoryFile.htmlSource,
-						newStoryFile.mtime,
-						newStoryFile.characters
+				// Load the newly created story part and add it to the store
+				const newStories = await twineElectron.loadStories();
+				if (newStories && Array.isArray(newStories)) {
+					// Find the newly created story part
+					const newStoryFile = newStories.find(
+						file =>
+							file.partName === partName &&
+							file.storyFolderName === story.storyFolderName
 					);
 
-					if (importedStories[0]) {
-						// Set the part metadata
-						importedStories[0].partName = newStoryFile.partName;
-						importedStories[0].storyFolderName = newStoryFile.storyFolderName;
+					if (newStoryFile) {
+						// Import the story using the same logic as the initial load
+						const {importStories} = await import('../../util/import');
+						const importedStories = importStories(
+							newStoryFile.htmlSource,
+							newStoryFile.mtime,
+							newStoryFile.characters
+						);
 
-						// Add the new story to the store
-						dispatch({
-							type: 'createStory',
-							props: importedStories[0]
-						});
+						if (importedStories[0]) {
+							// Set the part metadata
+							importedStories[0].partName = newStoryFile.partName;
+							importedStories[0].storyFolderName = newStoryFile.storyFolderName;
 
-						// Switch to the new part
-						setActivePartId(importedStories[0].id);
+							// Add the new story to the store
+							dispatch({
+								type: 'createStory',
+								props: importedStories[0]
+							});
+
+							// Switch to the new part
+							setActivePartId(importedStories[0].id);
+						}
 					}
 				}
+			} catch (error) {
+				console.error('Failed to create story part:', error);
 			}
-		} catch (error) {
-			console.error('Failed to create story part:', error);
-		}
-	}, [story.storyFolderName, storyParts, dispatch]);
+		},
+		[story.storyFolderName, storyParts, dispatch]
+	);
 
 	// Handle loading story parts from custom browser
 	const handleLoadParts = React.useCallback(async () => {
