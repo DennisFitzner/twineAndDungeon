@@ -19,6 +19,7 @@ export type PromptButtonValidator = (
 
 export interface PromptButtonProps
 	extends Omit<CardButtonProps, 'ariaLabel' | 'onChangeOpen' | 'open'> {
+	autoOpen?: boolean;
 	cancelIcon?: React.ReactNode;
 	cancelLabel?: string;
 	onChange: React.ChangeEventHandler<HTMLInputElement>;
@@ -34,6 +35,7 @@ export interface PromptButtonProps
 
 export const PromptButton: React.FC<PromptButtonProps> = props => {
 	const {
+		autoOpen = false,
 		cancelIcon,
 		cancelLabel,
 		onChange,
@@ -48,7 +50,7 @@ export const PromptButton: React.FC<PromptButtonProps> = props => {
 		...other
 	} = props;
 	const mounted = React.useRef(true);
-	const [open, setOpen] = React.useState(false);
+	const [open, setOpen] = React.useState(autoOpen);
 	const [validation, setValidation] =
 		React.useState<PromptValidationResponse>();
 	const {t} = useTranslation();

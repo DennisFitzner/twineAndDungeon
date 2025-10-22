@@ -24,12 +24,17 @@ import './passage-edit-stack.css';
 export interface PassageEditStackProps extends DialogComponentProps {
 	passageIds: string[];
 	storyId: string;
+	autoRename?: boolean;
 }
 
 const InnerPassageEditStack: React.FC<PassageEditStackProps> = props => {
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	const {onChangeProps, onClose, passageIds, storyId, ...managementProps} =
-		props;
+	const {
+		onClose,
+		passageIds,
+		storyId,
+		autoRename,
+		...managementProps
+	} = props;
 	const {dispatch} = useDialogsContext();
 	const {stories} = useStoriesContext();
 	const storyTagColors = storyWithId(stories, storyId).tagColors;
@@ -93,6 +98,7 @@ const InnerPassageEditStack: React.FC<PassageEditStackProps> = props => {
 									disabled
 									passageId={passageId}
 									storyId={storyId}
+									autoRename={autoRename && index === 0}
 								/>
 							</BackgroundDialogCard>
 						);
@@ -115,7 +121,11 @@ const InnerPassageEditStack: React.FC<PassageEditStackProps> = props => {
 							maximizable
 							onClose={event => handleClose(passageId, event)}
 						>
-							<PassageEditContents passageId={passageId} storyId={storyId} />
+							<PassageEditContents
+								passageId={passageId}
+								storyId={storyId}
+								autoRename={autoRename && index === 0}
+							/>
 						</DialogCard>
 					);
 				})}
