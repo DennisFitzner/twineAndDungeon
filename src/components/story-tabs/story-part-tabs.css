@@ -40,8 +40,12 @@
 .story-part-tab.active {
 	background: var(--color-bg);
 	border-bottom: 1px solid var(--color-bg);
+	border-top: 2px solid var(--blue);
 	margin-bottom: -1px;
 	z-index: 1;
+	font-weight: bold;
+	color: var(--dark-blue);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .story-part-tab-label {
