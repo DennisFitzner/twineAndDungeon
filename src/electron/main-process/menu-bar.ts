@@ -15,6 +15,11 @@ import {toggleHardwareAcceleration} from './hardware-acceleration';
 import {getAppPref} from './app-prefs';
 
 export function initMenuBar() {
+	function sendAccelerator(channel: string) {
+		const focusedWindow = BrowserWindow.getFocusedWindow();
+		focusedWindow?.webContents.send(channel);
+	}
+
 	const template: MenuItemConstructorOptions[] = [
 		{
 			label: app.getName(),
@@ -43,6 +48,21 @@ export function initMenuBar() {
 				{role: 'paste'},
 				{role: 'delete'},
 				{role: 'selectAll'}
+			]
+		},
+		{
+			label: i18n.t('common.story'),
+			submenu: [
+				{
+					accelerator: 'CmdOrCtrl+N',
+					click: () => sendAccelerator('accelerator:new-passage'),
+					label: i18n.t('undoChange.newPassage')
+				},
+				{
+					accelerator: 'CmdOrCtrl+P',
+					click: () => sendAccelerator('accelerator:new-story-part'),
+					label: i18n.t('storyPartTabs.createNewPart')
+				}
 			]
 		},
 		{
@@ -92,7 +112,13 @@ export function initMenuBar() {
 	];
 
 	if (process.platform === 'darwin') {
-		template[0].submenu = [
+		const appMenu = template[0];
+		const viewMenu = template.find(
+			item => item.label === i18n.t('electron.menuBar.view')
+		);
+		const windowMenu = template.find(item => item.role === 'window');
+
+		appMenu.submenu = [
 			{role: 'about'},
 			{
 				label: i18n.t('electron.menuBar.checkForUpdates'),
@@ -112,22 +138,25 @@ export function initMenuBar() {
 			{role: 'quit'}
 		];
 
-		(template[2].submenu as MenuItemConstructorOptions[]).push(
-			{type: 'separator'},
-			{
-				label: i18n.t('electron.menuBar.speech'),
-				submenu: [{role: 'startSpeaking'}, {role: 'stopSpeaking'}]
-			}
-		);
+		if (viewMenu?.submenu) {
+			(viewMenu.submenu as MenuItemConstructorOptions[]).push(
+				{type: 'separator'},
+				{
+					label: i18n.t('electron.menuBar.speech'),
+					submenu: [{role: 'startSpeaking'}, {role: 'stopSpeaking'}]
+				}
+			);
+		}
 
-		template[3].submenu = [
-			{role: 'close'},
-			{role: 'minimize'},
-			{role: 'zoom'},
-			{type: 'separator'},
-			{role: 'front'}
-		];
+		if (windowMenu) {
+			windowMenu.submenu = [
+				{role: 'close'},
+				{role: 'minimize'},
+				{role: 'zoom'},
+				{type: 'separator'},
+				{role: 'front'}
+			];
+		}
 	}
-
 	Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

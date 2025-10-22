@@ -1,8 +1,10 @@
 import * as React from 'react';
 import {useTranslation} from 'react-i18next';
 import {IconPlus} from '@tabler/icons';
-import {PromptButton} from '../control/prompt-button';
+import {PromptButton, PromptButtonHandle} from '../control/prompt-button';
+import {useHotkeys} from 'react-hotkeys-hook';
 import {unusedName} from '../../util/unused-name';
+import type {TwineElectronWindow} from '../../electron/shared';
 
 export interface CreateStoryPartButtonProps {
 	storyParts: Array<{partName?: string; name: string}>;
@@ -13,6 +15,7 @@ export const CreateStoryPartButton: React.FC<
 	CreateStoryPartButtonProps
 > = props => {
 	const {storyParts, onCreatePart} = props;
+	const promptRef = React.useRef<PromptButtonHandle>(null);
 	const [newName, setNewName] = React.useState(
 		unusedName(
 			'New Part',
@@ -20,6 +23,11 @@ export const CreateStoryPartButton: React.FC<
 		)
 	);
 	const {t} = useTranslation();
+	const twineElectron =
+		typeof window !== 'undefined'
+			? (window as TwineElectronWindow).twineElectron
+			: undefined;
+	const isElectron = Boolean(twineElectron?.onCreateStoryPartShortcut);
 
 	function validateName(value: string) {
 		if (value.trim() === '') {
@@ -48,8 +56,29 @@ export const CreateStoryPartButton: React.FC<
 		onCreatePart(newName);
 	}
 
+	useHotkeys(
+		'meta+p,ctrl+p',
+		event => {
+			event.preventDefault();
+			promptRef.current?.open();
+		},
+		{enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
+		[promptRef, isElectron]
+	);
+
+	React.useEffect(() => {
+		if (!isElectron || !twineElectron?.onCreateStoryPartShortcut) {
+			return;
+		}
+
+		return twineElectron.onCreateStoryPartShortcut(() => {
+			promptRef.current?.open();
+		});
+	}, [isElectron, twineElectron]);
+
 	return (
 		<PromptButton
+			ref={promptRef}
 			icon={<IconPlus />}
 			label={t('storyPartTabs.createNewPart')}
 			submitLabel={t('common.create')}

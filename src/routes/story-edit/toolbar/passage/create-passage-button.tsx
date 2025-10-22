@@ -1,12 +1,14 @@
 import * as React from 'react';
 import {useTranslation} from 'react-i18next';
 import {IconPlus} from '@tabler/icons';
+import {useHotkeys} from 'react-hotkeys-hook';
 import {IconButton} from '../../../../components/control/icon-button';
 import {createUntitledPassageWithEdit, Story} from '../../../../store/stories';
 import {useUndoableStoriesContext} from '../../../../store/undoable-stories';
 import {useDialogsContext} from '../../../../dialogs';
 import {addPassageEditors} from '../../../../dialogs/context/action-creators';
 import {Point} from '../../../../util/geometry';
+import type {TwineElectronWindow} from '../../../../electron/shared';
 
 export interface CreatePassageButtonProps {
 	getCenter: () => Point;
@@ -34,6 +36,31 @@ export const CreatePassageButton: React.FC<
 		}
 	}, [storiesDispatch, dialogsDispatch, getCenter, story]);
 	const {t} = useTranslation();
+	const twineElectron =
+		typeof window !== 'undefined'
+			? (window as TwineElectronWindow).twineElectron
+			: undefined;
+	const isElectron = Boolean(twineElectron?.onCreatePassageShortcut);
+
+	useHotkeys(
+		'meta+n,ctrl+n',
+		event => {
+			event.preventDefault();
+			handleClick();
+		},
+		{enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
+		[handleClick, isElectron]
+	);
+
+	React.useEffect(() => {
+		if (!isElectron || !twineElectron?.onCreatePassageShortcut) {
+			return;
+		}
+
+		return twineElectron.onCreatePassageShortcut(() => {
+			handleClick();
+		});
+	}, [handleClick, isElectron, twineElectron]);
 
 	return (
 		<IconButton

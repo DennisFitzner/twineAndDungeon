@@ -55,5 +55,16 @@ contextBridge.exposeInMainWorld('twineElectron', {
 	},
 	saveStoryHtml(story: Story, data: string, filename?: string) {
 		ipcRenderer.send('save-story-html', story, data, filename);
+	},
+	onCreatePassageShortcut(callback: () => void) {
+		const listener = () => callback();
+		ipcRenderer.on('accelerator:new-passage', listener);
+		return () => ipcRenderer.removeListener('accelerator:new-passage', listener);
+	},
+	onCreateStoryPartShortcut(callback: () => void) {
+		const listener = () => callback();
+		ipcRenderer.on('accelerator:new-story-part', listener);
+		return () =>
+			ipcRenderer.removeListener('accelerator:new-story-part', listener);
 	}
 });
