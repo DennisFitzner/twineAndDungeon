@@ -4,7 +4,6 @@ import {useTranslation} from 'react-i18next';
 import {Story} from '../../store/stories/stories.types';
 import {IconButton} from '../control/icon-button';
 import {CreateStoryPartButton} from './create-story-part-button';
-import {storyPartsLogger} from '../../util/story-parts-logger';
 import './story-part-tabs.css';
 
 export interface StoryPartTabsProps {
@@ -38,31 +37,8 @@ export const StoryPartTabs: React.FC<StoryPartTabsProps> = props => {
 	const handleClosePart = (event: React.MouseEvent, partIfid: string) => {
 		event.stopPropagation();
 
-		// Log tab close attempt
-		const partToClose = storyParts.find(part => part.ifid === partIfid);
-		storyPartsLogger.logTab({
-			tabId: partIfid,
-			tabName: partToClose?.partName || partToClose?.name || 'unknown',
-			operation: 'close',
-			details: {
-				totalTabs: storyParts.length,
-				canClose: storyParts.length > 1,
-				identificationMethod: 'ifid-based'
-			}
-		});
-
 		// Don't allow closing if there's only one part
 		if (storyParts.length <= 1) {
-			storyPartsLogger.logTab({
-				tabId: partIfid,
-				tabName: partToClose?.partName || partToClose?.name || 'unknown',
-				operation: 'close_blocked',
-				details: {
-					reason: 'only_one_part_remaining',
-					totalTabs: storyParts.length,
-					identificationMethod: 'ifid-based'
-				}
-			});
 			return;
 		}
 
@@ -73,37 +49,7 @@ export const StoryPartTabs: React.FC<StoryPartTabsProps> = props => {
 		part => part.ifid === activePartIfid
 	);
 
-	// Log tab array state changes
-	React.useEffect(() => {
-		storyPartsLogger.logTab({
-			tabId: 'tab_array',
-			tabName: 'story_parts_tabs',
-			operation: 'filter',
-			details: {
-				totalTabs: storyParts.length,
-				activeTabIndex: activeIndex,
-				activeTabIfid: activePartIfid,
-				tabNames: storyParts.map(part => part.partName || part.name),
-				identificationMethod: 'ifid-based'
-			}
-		});
-	}, [storyParts, activeIndex, activePartIfid]);
-
 	const handleSelectPart = (partIfid: string) => {
-		const selectedPart = storyParts.find(part => part.ifid === partIfid);
-
-		// Log tab selection
-		storyPartsLogger.logTab({
-			tabId: partIfid,
-			tabName: selectedPart?.partName || selectedPart?.name || 'unknown',
-			operation: 'select',
-			details: {
-				previousActiveTab: activePartIfid,
-				totalTabs: storyParts.length,
-				identificationMethod: 'ifid-based'
-			}
-		});
-
 		onSelectPart(partIfid);
 	};
 

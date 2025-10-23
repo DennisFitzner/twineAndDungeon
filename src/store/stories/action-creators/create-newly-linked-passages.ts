@@ -8,7 +8,6 @@ import {
 import {passageDefaults} from '../defaults';
 import {rectsIntersect} from '../../../util/geometry';
 import {parseLinks, parseCrossPartLinkTarget} from '../../../util/parse-links';
-import {storyPartsLogger} from '../../../util/story-parts-logger';
 import {validateCrossLinkTarget, generateCrossLinkTags} from '../../../util/ifid-cross-link-utils';
 
 /**
@@ -31,22 +30,6 @@ export function createNewlyLinkedPassages(
 		const oldLinks = parseLinks(oldText);
 		const newLinks = parseLinks(newText);
 
-		// Log link parsing
-		storyPartsLogger.logStoryParts({
-			storyId: story.id,
-			storyName: story.name,
-			partName: story.partName,
-			operation: 'parse_links',
-			details: {
-				passageName: passage.name,
-				oldLinksCount: oldLinks.length,
-				newLinksCount: newLinks.length,
-				oldLinks,
-				newLinks
-			}
-		});
-
-		// Handle both local links and cross-part links
 		const toCreate: Array<{
 			name: string;
 			isInterlink?: boolean;
@@ -54,9 +37,6 @@ export function createNewlyLinkedPassages(
 			targetPassage?: string;
 			targetStoryIfid?: string;
 		}> = [];
-
-		let interlinkCount = 0;
-		let localLinkCount = 0;
 
 		// Get all stories for cross-link validation
 		const stories = allStories || getState();
@@ -88,64 +68,12 @@ export function createNewlyLinkedPassages(
 						targetPassage: crossPartTarget.passage,
 						targetStoryIfid: validation.story.ifid
 					});
-					interlinkCount++;
-
-					// Log interlink detection
-					storyPartsLogger.logCrossLink({
-						sourceStoryId: story.id,
-						sourceStoryName: story.name,
-						targetStoryName: crossPartTarget.part,
-						linkType: 'interlink',
-						passageName: passage.name,
-						operation: 'detect_interlink',
-						details: {
-							linkText,
-							targetPassage: crossPartTarget.passage,
-							sourcePassage: passage.name,
-							targetStoryIfid: validation.story.ifid,
-							validationMethod: 'ifid-based'
-						}
-					});
 				} else {
-					// Log invalid cross-link
-					storyPartsLogger.logCrossLink({
-						sourceStoryId: story.id,
-						sourceStoryName: story.name,
-						linkType: 'interlink',
-						passageName: passage.name,
-						operation: 'invalid_cross_link',
-						details: {
-							linkText,
-							targetStory: crossPartTarget.part,
-							targetPassage: crossPartTarget.passage,
-							reason: 'target_not_found'
-						}
-					});
+					// Skip when validation fails; nothing to create for unresolved cross-part link.
 				}
 			} else {
 				// This is a local link, create a regular passage
 				toCreate.push({name: linkText});
-				localLinkCount++;
-			}
-		});
-
-		// Log link creation summary
-		storyPartsLogger.logStoryParts({
-			storyId: story.id,
-			storyName: story.name,
-			partName: story.partName,
-			operation: 'create_links_summary',
-			details: {
-				passageName: passage.name,
-				totalToCreate: toCreate.length,
-				interlinkCount,
-				localLinkCount,
-				interlinkNames: toCreate
-					.filter(item => item.isInterlink)
-					.map(item => item.name),
-				localLinkNames: toCreate
-					.filter(item => !item.isInterlink)
-					.map(item => item.name)
 			}
 		});
 
@@ -201,27 +129,6 @@ export function createNewlyLinkedPassages(
 
 		// Actually create them.
 
-		// Log final passage creation
-		storyPartsLogger.logStoryParts({
-			storyId: story.id,
-			storyName: story.name,
-			partName: story.partName,
-			operation: 'create_passages',
-			details: {
-				passageName: passage.name,
-				passageCount: toCreate.length,
-				position: {left, top},
-				passageNames: toCreate.map(item => item.name),
-				interlinkCards: toCreate
-					.filter(item => item.isInterlink)
-					.map(item => ({
-						name: item.name,
-						targetStory: item.targetStory,
-						targetPassage: item.targetPassage
-					}))
-			}
-		});
-
 		dispatch({
 			type: 'createPassages',
 			storyId: story.id,
@@ -246,25 +153,6 @@ export function createNewlyLinkedPassages(
 					// Add explicit empty text for interlink cards to prevent them from being parsed as links
 					text: item.isInterlink ? '' : undefined
 				};
-
-				// Log individual passage creation
-				if (item.isInterlink) {
-					storyPartsLogger.logCrossLink({
-						sourceStoryId: story.id,
-						sourceStoryName: story.name,
-						targetStoryName: item.targetStory,
-						linkType: 'interlink',
-						passageName: item.name,
-						operation: 'create_interlink_card',
-						details: {
-							targetPassage: item.targetPassage,
-							position: {left, top},
-							sourcePassage: passage.name,
-							targetStoryIfid: item.targetStoryIfid,
-							validationMethod: 'ifid-based'
-						}
-					});
-				}
 
 				left += passageDefs.width + passageGap;
 				return result;
