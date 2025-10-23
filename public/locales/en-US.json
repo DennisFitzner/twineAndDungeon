@@ -178,6 +178,12 @@
 		"appPrefs": {
 			"codeEditorFont": "Code Editor Font",
 			"codeEditorFontScale": "Code Editor Font Size",
+			"characterIconSize": "Character Icon Size",
+			"characterIconSizeUnit": "Character Icon Size Unit",
+			"characterIconSizeUnits": {
+				"px": "Pixels",
+				"percent": "Percent"
+			},
 			"dialogWidth": "Dialog Width",
 			"dialogWidths": {
 				"default": "Default",

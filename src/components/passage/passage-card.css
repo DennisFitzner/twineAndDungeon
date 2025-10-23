@@ -85,9 +85,9 @@
 
 .passage-character-thumbnail {
 	border-radius: 50%;
-	height: 20px;
+	height: var(--character-icon-size, 20px);
 	object-fit: cover;
-	width: 20px;
+	width: var(--character-icon-size, 20px);
 }
 
 .passage-card__resize-handle {

@@ -3,9 +3,10 @@ import {cleanup, fireEvent, render, screen} from '@testing-library/react';
 import * as detectIt from 'detect-it';
 import {axe} from 'jest-axe';
 import * as React from 'react';
-import {fakePassage} from '../../../test-util';
+import {fakePassage, fakePrefs} from '../../../test-util';
 import {passageIsEmpty} from '../../../util/passage-is-empty';
 import {PassageCard, PassageCardProps} from '../passage-card';
+import {PrefsContext, PrefsState} from '../../../store/prefs';
 
 jest.mock('../../tag/tag-stripe');
 jest.mock('../../../util/passage-is-empty');
@@ -20,26 +21,34 @@ describe('<PassageCard>', () => {
 		(detectIt as any).deviceType = oldDeviceType;
 	});
 
-	function renderComponent(props?: Partial<PassageCardProps>) {
+	function renderComponent(
+		props?: Partial<PassageCardProps>,
+		prefsOverride?: PrefsState
+	) {
 		const passage = props?.passage ?? fakePassage({story: 'test-story'});
+		const prefs = prefsOverride ?? fakePrefs();
 		return render(
-			<PassageCard
-				onDeselect={jest.fn()}
-				onEdit={jest.fn()}
-				onSelect={jest.fn()}
-				onResize={jest.fn()}
-				story={
-					{
-						id: 'test-story',
-						characters: [],
-						snapToGrid: false
-					} as any
-				}
-				tagColors={{}}
-				visibleZoom={1}
-				{...props}
-				passage={passage}
-			/>
+			<PrefsContext.Provider
+				value={{dispatch: jest.fn(), prefs}}
+			>
+				<PassageCard
+					onDeselect={jest.fn()}
+					onEdit={jest.fn()}
+					onSelect={jest.fn()}
+					onResize={jest.fn()}
+					story={
+						{
+							id: 'test-story',
+							characters: [],
+							snapToGrid: false
+						} as any
+					}
+					tagColors={{}}
+					visibleZoom={1}
+					{...props}
+					passage={passage}
+				/>
+			</PrefsContext.Provider>
 		);
 	}
 
@@ -50,6 +59,17 @@ describe('<PassageCard>', () => {
 
 		const passageElement = document.querySelector('.passage-card');
 		expect(passageElement).toHaveAttribute('data-passage-tags', tags.join(' '));
+	});
+
+	it('applies the character icon size preference as a CSS variable', () => {
+		const prefs = fakePrefs({
+			characterIconSize: {amount: 42, unit: '%'}
+		});
+
+		renderComponent(undefined, prefs);
+
+		const card = document.querySelector('.passage-card') as HTMLElement;
+		expect(card.style.getPropertyValue('--character-icon-size')).toBe('42%');
 	});
 
 	it('should include data-passage-tag with an empty string when passage has no tags', () => {

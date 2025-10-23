@@ -4,8 +4,9 @@ import {CardContent} from '../components/container/card';
 import {DialogCard, DialogCardProps} from '../components/container/dialog-card';
 import {CheckboxButton} from '../components/control/checkbox-button';
 import {FontSelect} from '../components/control/font-select';
+import {TextInput} from '../components/control/text-input';
 import {TextSelect} from '../components/control/text-select';
-import {setPref, usePrefsContext} from '../store/prefs';
+import {CharacterIconSizePref, setPref, usePrefsContext} from '../store/prefs';
 import {closestAppLocale, locales} from '../util/locales';
 import './app-prefs.css';
 
@@ -24,6 +25,74 @@ export const AppPrefsDialog: React.FC<
 			dispatch(setPref('editorCursorBlinks', true));
 		}
 	}
+
+	const normalizedCharacterIconSize = React.useMemo<CharacterIconSizePref>(() => {
+		const pref = prefs.characterIconSize as unknown;
+
+		if (typeof pref === 'number') {
+			return {amount: pref, unit: 'px'};
+		}
+
+		if (
+			pref &&
+			typeof (pref as CharacterIconSizePref).amount === 'number' &&
+			((pref as CharacterIconSizePref).unit === 'px' ||
+				(pref as CharacterIconSizePref).unit === '%')
+		) {
+			return pref as CharacterIconSizePref;
+		}
+
+		return {amount: 20, unit: 'px'};
+	}, [prefs.characterIconSize]);
+
+	const [characterIconAmount, setCharacterIconAmount] = React.useState(
+		normalizedCharacterIconSize.amount.toString()
+	);
+
+	React.useEffect(() => {
+		setCharacterIconAmount(normalizedCharacterIconSize.amount.toString());
+	}, [normalizedCharacterIconSize.amount]);
+
+	const handleCharacterIconAmountChange = React.useCallback(
+		(event: React.ChangeEvent<HTMLInputElement>) => {
+			const nextValue = event.target.value;
+			setCharacterIconAmount(nextValue);
+
+			const parsed = parseFloat(nextValue);
+
+			if (!Number.isFinite(parsed)) {
+				return;
+			}
+
+			const sanitized = Math.max(0, parsed);
+
+			dispatch(
+				setPref('characterIconSize', {
+					amount: sanitized,
+					unit: normalizedCharacterIconSize.unit
+				})
+			);
+		},
+		[dispatch, normalizedCharacterIconSize.unit]
+	);
+
+	const handleCharacterIconUnitChange = React.useCallback(
+		(event: React.ChangeEvent<HTMLSelectElement>) => {
+			const parsedAmount = parseFloat(characterIconAmount);
+			const nextAmount = Number.isFinite(parsedAmount)
+				? Math.max(0, parsedAmount)
+				: normalizedCharacterIconSize.amount;
+			const nextUnit = event.target.value === '%' ? '%' : 'px';
+
+			dispatch(
+				setPref('characterIconSize', {
+					amount: nextAmount,
+					unit: nextUnit
+				})
+			);
+		},
+		[characterIconAmount, dispatch, normalizedCharacterIconSize.amount]
+	);
 
 	return (
 		<DialogCard
@@ -66,6 +135,28 @@ export const AppPrefsDialog: React.FC<
 					value={prefs.dialogWidth.toString()}
 				>
 					{t('dialogs.appPrefs.dialogWidth')}
+				</TextSelect>
+				<TextInput
+					onChange={handleCharacterIconAmountChange}
+					value={characterIconAmount}
+				>
+					{t('dialogs.appPrefs.characterIconSize')}
+				</TextInput>
+				<TextSelect
+					onChange={handleCharacterIconUnitChange}
+					options={[
+						{
+							label: t('dialogs.appPrefs.characterIconSizeUnits.px'),
+							value: 'px'
+						},
+						{
+							label: t('dialogs.appPrefs.characterIconSizeUnits.percent'),
+							value: '%'
+						}
+					]}
+					value={normalizedCharacterIconSize.unit}
+				>
+					{t('dialogs.appPrefs.characterIconSizeUnit')}
 				</TextSelect>
 				<CheckboxButton
 					disabled={!prefs.useCodeMirror}

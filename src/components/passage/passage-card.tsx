@@ -6,6 +6,7 @@ import {useTranslation} from 'react-i18next';
 import {CardContent} from '../container/card';
 import {SelectableCard} from '../container/card/selectable-card';
 import {Passage, TagColors, Story} from '../../store/stories';
+import {CharacterIconSizePref, usePrefsContext} from '../../store/prefs';
 import {TagStripe} from '../tag/tag-stripe';
 import {passageIsEmpty} from '../../util/passage-is-empty';
 import {DraggableCoreWrapper} from './draggable-core-wrapper';
@@ -52,6 +53,7 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		visibleZoom
 	} = props;
 	const {t} = useTranslation();
+	const {prefs} = usePrefsContext();
 	const container = React.useRef<HTMLDivElement>(null);
 	const [resizePreview, setResizePreview] =
 		React.useState<PassageDimensions | null>(null);
@@ -320,20 +322,44 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		}),
 		[passage.height, passage.width, resizePreview]
 	);
-	const style = React.useMemo(
+	const characterIconSizePref = React.useMemo<CharacterIconSizePref>(() => {
+		const pref = prefs.characterIconSize as unknown;
+
+		if (typeof pref === 'number') {
+			return {amount: pref, unit: 'px'};
+		}
+
+		if (
+			pref &&
+			typeof (pref as CharacterIconSizePref).amount === 'number' &&
+			((pref as CharacterIconSizePref).unit === 'px' ||
+				(pref as CharacterIconSizePref).unit === '%')
+		) {
+			return pref as CharacterIconSizePref;
+		}
+
+		return {amount: 20, unit: 'px'};
+	}, [prefs.characterIconSize]);
+	const style = React.useMemo<React.CSSProperties>(
 		() => ({
 			height: appliedSize.height,
 			left: passage.left,
 			top: passage.top,
 			width: appliedSize.width,
-			...characterBorderStyle
+			...characterBorderStyle,
+			'--character-icon-size': `${Math.max(
+				0,
+				characterIconSizePref.amount
+			)}${characterIconSizePref.unit}`
 		}),
 		[
 			appliedSize.height,
 			appliedSize.width,
 			passage.left,
 			passage.top,
-			characterBorderStyle
+			characterBorderStyle,
+			characterIconSizePref.amount,
+			characterIconSizePref.unit
 		]
 	);
 	const handleMouseDown = React.useCallback(

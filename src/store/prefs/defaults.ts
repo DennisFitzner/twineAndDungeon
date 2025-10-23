@@ -6,6 +6,7 @@ export const defaults = (): PrefsState => ({
 	codeEditorFontScale: 1,
 	dialogWidth: 600,
 	disabledStoryFormatEditorExtensions: [],
+	characterIconSize: {amount: 20, unit: 'px'},
 	donateShown: false,
 	editorCursorBlinks: true,
 	firstRunTime: new Date().getTime(),

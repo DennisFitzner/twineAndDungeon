@@ -119,6 +119,10 @@ export function fakePrefs(overrides?: Partial<PrefsState>): PrefsState {
 		disabledStoryFormatEditorExtensions: [
 			{name: faker.lorem.words(2), version: faker.system.semver()}
 		],
+		characterIconSize: {
+			amount: faker.number.int({min: 10, max: 100}),
+			unit: faker.helpers.arrayElement(['px', '%'])
+		},
 		donateShown: faker.datatype.boolean(),
 		editorCursorBlinks: faker.datatype.boolean(),
 		firstRunTime: new Date().getTime(),
