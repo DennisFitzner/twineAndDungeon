@@ -19,6 +19,7 @@ describe('<PassageMap>', () => {
 				onDeselect={jest.fn()}
 				onDrag={jest.fn()}
 				onEdit={jest.fn()}
+				onResize={jest.fn()}
 				onSelect={jest.fn()}
 				passages={passages}
 				startPassageId={passages[0].id}

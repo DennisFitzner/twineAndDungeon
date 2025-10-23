@@ -4,6 +4,7 @@ import {
 	deselectPassage,
 	movePassages,
 	Passage,
+	resizePassage,
 	selectPassage,
 	selectPassagesInRect,
 	Story
@@ -64,6 +65,19 @@ export function usePassageChangeHandlers(story: Story) {
 			dialogsDispatch(addPassageEditors(story.id, [passage.id])),
 		[dialogsDispatch, story.id]
 	);
+	const handleResizePassage = React.useCallback(
+		(passage: Passage, size: {width: number; height: number}) => {
+			if (passage.story !== story.id) {
+				return;
+			}
+
+			undoableStoriesDispatch(
+				resizePassage(story, passage, size.width, size.height),
+				'undoChange.movePassage'
+			);
+		},
+		[story, undoableStoriesDispatch]
+	);
 
 	const handleSelectPassage = React.useCallback(
 		(passage: Passage, exclusive: boolean) =>
@@ -98,6 +112,7 @@ export function usePassageChangeHandlers(story: Story) {
 		handleDeselectPassage,
 		handleDragPassages,
 		handleEditPassage,
+		handleResizePassage,
 		handleSelectPassage,
 		handleSelectRect
 	};

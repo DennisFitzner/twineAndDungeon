@@ -247,6 +247,7 @@ export const InnerStoryEditRoute: React.FC = () => {
 		handleDeselectPassage,
 		handleDragPassages,
 		handleEditPassage,
+		handleResizePassage,
 		handleSelectPassage,
 		handleSelectRect
 	} = usePassageChangeHandlers(activeStory);
@@ -716,6 +717,7 @@ export const InnerStoryEditRoute: React.FC = () => {
 					onDeselect={handleDeselectPassage}
 					onDrag={handleDragPassages}
 					onEdit={handleEditPassage}
+					onResize={handleResizePassage}
 					onSelect={handleSelectPassage}
 					onSelectRect={handleSelectRect}
 					passages={activeStory.passages}

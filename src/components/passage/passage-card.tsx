@@ -12,6 +12,14 @@ import {DraggableCoreWrapper} from './draggable-core-wrapper';
 import {emitNavigateTo} from '../../store/navigation-events';
 import './passage-card.css';
 
+interface PassageDimensions {
+	height: number;
+	width: number;
+}
+
+const minDimension = 50;
+const gridSize = 25;
+
 export interface PassageCardProps {
 	onEdit: (passage: Passage) => void;
 	onDeselect: (passage: Passage) => void;
@@ -19,9 +27,11 @@ export interface PassageCardProps {
 	onDrag?: DraggableCoreProps['onDrag'];
 	onDragStop?: DraggableCoreProps['onStop'];
 	onSelect: (passage: Passage, exclusive: boolean) => void;
+	onResize?: (passage: Passage, size: PassageDimensions) => void;
 	passage: Passage;
 	story: Story;
 	tagColors: TagColors;
+	visibleZoom: number;
 }
 
 // Needs to fill a large-sized passage card.
@@ -35,11 +45,172 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		onDragStop,
 		onEdit,
 		onSelect,
+		onResize,
 		passage,
 		story,
-		tagColors
+		tagColors,
+		visibleZoom
 	} = props;
 	const {t} = useTranslation();
+	const container = React.useRef<HTMLDivElement>(null);
+	const [resizePreview, setResizePreview] =
+		React.useState<PassageDimensions | null>(null);
+	const [resizing, setResizing] = React.useState(false);
+	const resizeState = React.useRef<{
+		pointerId: number;
+		startX: number;
+		startY: number;
+		startSize: PassageDimensions;
+	} | null>(null);
+	const latestSize = React.useRef<PassageDimensions | null>(null);
+	const canResize = React.useMemo(
+		() => Boolean(onResize) && passage.story === story.id,
+		[onResize, passage.story, story.id]
+	);
+	const finishResize = React.useCallback(
+		(event: React.PointerEvent<HTMLDivElement>, commit: boolean) => {
+			if (!resizeState.current || resizeState.current.pointerId !== event.pointerId) {
+				return;
+			}
+
+			event.stopPropagation();
+			event.preventDefault();
+			try {
+				event.currentTarget.releasePointerCapture(event.pointerId);
+			} catch (error) {
+				// Ignore if pointer was not captured.
+			}
+
+			document.body.classList.remove('resizing-passages');
+			setResizing(false);
+
+			const finalSize = latestSize.current;
+			const startSize = resizeState.current.startSize;
+
+			if (
+				commit &&
+				onResize &&
+				finalSize &&
+				(Math.abs(finalSize.width - startSize.width) >= 1 ||
+					Math.abs(finalSize.height - startSize.height) >= 1)
+			) {
+				onResize(passage, finalSize);
+			}
+
+			if (!commit || !finalSize) {
+				setResizePreview(null);
+			}
+
+			latestSize.current = null;
+			resizeState.current = null;
+		},
+		[onResize, passage]
+	);
+	const handleResizePointerDown = React.useCallback(
+		(event: React.PointerEvent<HTMLDivElement>) => {
+			if (!canResize) {
+				return;
+			}
+
+			event.stopPropagation();
+			event.preventDefault();
+
+			const initialSize: PassageDimensions = {
+				height: passage.height,
+				width: passage.width
+			};
+
+			resizeState.current = {
+				pointerId: event.pointerId,
+				startX: event.clientX,
+				startY: event.clientY,
+				startSize: initialSize
+			};
+			latestSize.current = initialSize;
+			setResizePreview(initialSize);
+			setResizing(true);
+			document.body.classList.add('resizing-passages');
+
+			try {
+				event.currentTarget.setPointerCapture(event.pointerId);
+			} catch (error) {
+				// Ignore if pointer capture is not supported.
+			}
+		},
+		[canResize, passage.height, passage.width]
+	);
+	const handleResizePointerMove = React.useCallback(
+		(event: React.PointerEvent<HTMLDivElement>) => {
+			if (!resizeState.current || resizeState.current.pointerId !== event.pointerId) {
+				return;
+			}
+
+			event.stopPropagation();
+			event.preventDefault();
+
+			const scale = visibleZoom || 1;
+			const deltaX =
+				(event.clientX - resizeState.current.startX) / scale;
+			const deltaY =
+				(event.clientY - resizeState.current.startY) / scale;
+
+			const nextWidth = snapDimension(
+				resizeState.current.startSize.width + deltaX,
+				story.snapToGrid
+			);
+			const nextHeight = snapDimension(
+				resizeState.current.startSize.height + deltaY,
+				story.snapToGrid
+			);
+
+			const previous = latestSize.current;
+			if (
+				previous &&
+				previous.width === nextWidth &&
+				previous.height === nextHeight
+			) {
+				return;
+			}
+
+			const newSize: PassageDimensions = {
+				height: nextHeight,
+				width: nextWidth
+			};
+
+			latestSize.current = newSize;
+			setResizePreview(newSize);
+		},
+		[story.snapToGrid, visibleZoom]
+	);
+	const handleResizePointerUp = React.useCallback(
+		(event: React.PointerEvent<HTMLDivElement>) =>
+			finishResize(event, true),
+		[finishResize]
+	);
+	const handleResizePointerCancel = React.useCallback(
+		(event: React.PointerEvent<HTMLDivElement>) =>
+			finishResize(event, false),
+		[finishResize]
+	);
+	React.useEffect(() => {
+		if (resizing || !resizePreview) {
+			return;
+		}
+
+		if (
+			Math.abs(resizePreview.width - passage.width) < 1 &&
+			Math.abs(resizePreview.height - passage.height) < 1
+		) {
+			setResizePreview(null);
+		}
+	}, [passage.height, passage.width, resizePreview, resizing]);
+
+	React.useEffect(() => {
+		return () => {
+			document.body.classList.remove('resizing-passages');
+		};
+	}, []);
+
 	// Detect if this is an interlink card (cross-part link)
 	const isInterlink = React.useMemo(() => {
 		return passage.tags.includes('interlink');
@@ -72,11 +243,11 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 				empty: passageIsEmpty(passage),
 				selected: passage.selected,
 				interlink: isInterlink,
-				'back-reference': isBackReference
+				'back-reference': isBackReference,
+				resizing
 			}),
-		[passage, isInterlink, isBackReference]
+		[passage, isInterlink, isBackReference, resizing]
 	);
-	const container = React.useRef<HTMLDivElement>(null);
 	const excerpt = React.useMemo(() => {
 		if (passage.text.length > 0) {
 			return passage.text.substring(0, excerptLength);
@@ -142,19 +313,26 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		}
 	}, [passage.tags, story.characters]);
 
+	const appliedSize = React.useMemo(
+		(): PassageDimensions => ({
+			height: resizePreview?.height ?? passage.height,
+			width: resizePreview?.width ?? passage.width
+		}),
+		[passage.height, passage.width, resizePreview]
+	);
 	const style = React.useMemo(
 		() => ({
-			height: passage.height,
+			height: appliedSize.height,
 			left: passage.left,
 			top: passage.top,
-			width: passage.width,
+			width: appliedSize.width,
 			...characterBorderStyle
 		}),
 		[
-			passage.height,
+			appliedSize.height,
+			appliedSize.width,
 			passage.left,
 			passage.top,
-			passage.width,
 			characterBorderStyle
 		]
 	);
@@ -303,9 +481,29 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 					<h2>{passage.name}</h2>
 					<CardContent>{excerpt}</CardContent>
 				</SelectableCard>
+				{canResize && (
+					<div
+						aria-hidden="true"
+						className="passage-card__resize-handle"
+						onPointerCancel={handleResizePointerCancel}
+						onPointerDown={handleResizePointerDown}
+						onPointerMove={handleResizePointerMove}
+						onPointerUp={handleResizePointerUp}
+					/>
+				)}
 			</div>
 		</DraggableCoreWrapper>
 	);
 });
 
 PassageCard.displayName = 'PassageCard';
+
+function snapDimension(value: number, snapToGrid: boolean) {
+	const constrained = Math.max(minDimension, value);
+
+	if (!snapToGrid) {
+		return constrained;
+	}
+
+	return Math.max(minDimension, Math.round(constrained / gridSize) * gridSize);
+}

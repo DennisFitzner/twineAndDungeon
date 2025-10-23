@@ -90,6 +90,44 @@
 	width: 20px;
 }
 
+.passage-card__resize-handle {
+	bottom: 4px;
+	cursor: nwse-resize;
+	height: 14px;
+	position: absolute;
+	right: 4px;
+	width: 14px;
+	z-index: 2;
+}
+
+.passage-card__resize-handle::after {
+	border-bottom: 2px solid rgba(0, 0, 0, 0.35);
+	border-radius: 2px;
+	border-right: 2px solid rgba(0, 0, 0, 0.35);
+	bottom: 1px;
+	content: '';
+	left: 1px;
+	position: absolute;
+	right: 1px;
+	top: 1px;
+}
+
+.passage-card.selected .passage-card__resize-handle::after {
+	border-color: var(--blue);
+}
+
+.passage-card.resizing .selectable-card {
+	pointer-events: none;
+}
+
+[data-app-theme='dark'] .passage-card__resize-handle::after {
+	border-color: rgba(255, 255, 255, 0.5);
+}
+
+[data-app-theme='dark'] .passage-card.selected .passage-card__resize-handle::after {
+	border-color: var(--blue);
+}
+
 /* Interlink passage styling */
 .passage-card.interlink .card {
 	background: linear-gradient(

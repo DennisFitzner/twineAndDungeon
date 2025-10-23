@@ -21,15 +21,24 @@ describe('<PassageCard>', () => {
 	});
 
 	function renderComponent(props?: Partial<PassageCardProps>) {
+		const passage = props?.passage ?? fakePassage({story: 'test-story'});
 		return render(
 			<PassageCard
 				onDeselect={jest.fn()}
 				onEdit={jest.fn()}
 				onSelect={jest.fn()}
-				passage={fakePassage()}
-				story={{id: 'test-story', characters: []} as any}
+				onResize={jest.fn()}
+				story={
+					{
+						id: 'test-story',
+						characters: [],
+						snapToGrid: false
+					} as any
+				}
 				tagColors={{}}
+				visibleZoom={1}
 				{...props}
+				passage={passage}
 			/>
 		);
 	}

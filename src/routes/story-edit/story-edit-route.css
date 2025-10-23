@@ -28,3 +28,15 @@ body.dragging-passages .drop {
 body.dragging-passages .story-edit-route * {
 	cursor: default !important;
 }
+
+body.resizing-passages {
+	user-select: none;
+}
+
+body.resizing-passages .drop {
+	display: none !important;
+}
+
+body.resizing-passages .story-edit-route * {
+	cursor: nwse-resize !important;
+}

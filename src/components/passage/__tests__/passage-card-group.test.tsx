@@ -14,9 +14,11 @@ describe('<PassageCardGroup>', () => {
 				onDeselect={jest.fn()}
 				onEdit={jest.fn()}
 				passages={[fakePassage(), fakePassage()]}
+				onResize={jest.fn()}
 				onSelect={jest.fn()}
 				story={{id: 'test-story', characters: []} as any}
 				tagColors={{}}
+				visibleZoom={1}
 				{...props}
 			/>
 		);
