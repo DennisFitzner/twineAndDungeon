@@ -14,6 +14,9 @@ import {IconButton} from '../components/control/icon-button';
 import {IconFileTwee} from '../components/image/icon';
 import {storyFileName} from '../electron/shared';
 import {Story} from '../store/stories';
+import {useStoriesContext} from '../store/stories';
+import {useDialogsContext} from '../dialogs/context';
+import {ExportAllTweeDialog} from '../dialogs/export-all-twee';
 import {usePublishing} from '../store/use-publishing';
 import {useStoryLaunch} from '../store/use-story-launch';
 import {saveHtml, saveTwee} from '../util/save-file';
@@ -25,6 +28,8 @@ export interface BuildActionsProps {
 
 export const BuildActions: React.FC<BuildActionsProps> = ({story}) => {
 	const {publishStory} = usePublishing();
+	const {stories} = useStoriesContext();
+	const {dispatch: dialogsDispatch} = useDialogsContext();
 	const [playError, setPlayError] = React.useState<Error>();
 	const [proofError, setProofError] = React.useState<Error>();
 	const [publishError, setPublishError] = React.useState<Error>();
@@ -101,6 +106,35 @@ export const BuildActions: React.FC<BuildActionsProps> = ({story}) => {
 		}
 
 		saveTwee(storyToTwee(story), storyFileName(story, '.twee'));
+	}
+
+	function handleExportAllPartsAsTwee() {
+		if (!story) {
+			throw new Error('No story provided to export');
+		}
+
+		// Get all story parts in the same folder
+		const folderName = story.storyFolderName || story.name;
+		const allStoryParts = stories.filter(s => {
+			const currentFolder = s.storyFolderName || s.name;
+			return currentFolder === folderName;
+		});
+
+		if (allStoryParts.length <= 1) {
+			// If there's only one part, just export it normally
+			handleExportAsTwee();
+			return;
+		}
+
+		// Open the export options dialog
+		dialogsDispatch({
+			type: 'addDialog',
+			component: ExportAllTweeDialog,
+			props: {
+				story,
+				allStoryParts
+			}
+		});
 	}
 
 	return (
@@ -186,6 +220,12 @@ export const BuildActions: React.FC<BuildActionsProps> = ({story}) => {
 				icon={<IconFileTwee />}
 				label={t('routeActions.build.exportAsTwee')}
 				onClick={handleExportAsTwee}
+			/>
+			<IconButton
+				disabled={!story}
+				icon={<IconFileTwee />}
+				label={t('routeActions.build.exportAllPartsAsTwee')}
+				onClick={handleExportAllPartsAsTwee}
 			/>
 		</ButtonBar>
 	);

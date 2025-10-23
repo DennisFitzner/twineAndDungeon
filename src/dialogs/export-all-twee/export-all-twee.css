@@ -1,0 +1,47 @@
+.export-all-twee-dialog {
+	padding: var(--grid-size);
+}
+
+.export-mode-selection,
+.naming-options {
+	margin-bottom: calc(var(--grid-size) * 2);
+}
+
+.export-mode-selection h3,
+.naming-options h3 {
+	margin: 0 0 var(--grid-size) 0;
+	font-size: 1.1em;
+	font-weight: 600;
+}
+
+.radio-option {
+	display: flex;
+	align-items: center;
+	margin-bottom: var(--grid-size);
+	cursor: pointer;
+}
+
+.radio-option input[type='radio'] {
+	margin-right: var(--grid-size);
+}
+
+.story-parts-info {
+	margin-bottom: calc(var(--grid-size) * 2);
+	padding: var(--grid-size);
+	background: var(--color-bg-secondary);
+	border-radius: var(--border-radius);
+}
+
+.story-parts-info p {
+	margin: 0 0 var(--grid-size) 0;
+	font-weight: 600;
+}
+
+.story-parts-info ul {
+	margin: 0;
+	padding-left: calc(var(--grid-size) * 2);
+}
+
+.story-parts-info li {
+	margin-bottom: calc(var(--grid-size) / 2);
+}

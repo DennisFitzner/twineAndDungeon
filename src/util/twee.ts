@@ -336,3 +336,34 @@ export function unescapeForTweeHeader(value: string) {
 export function unescapeForTweeText(value: string) {
 	return value.replace(/^\\:/gm, ':');
 }
+
+/**
+ * Exports multiple story parts as a combined Twee file.
+ * Each story part is clearly separated with section headers.
+ */
+export function exportAllStoryPartsAsTwee(
+	storyParts: Story[],
+	combinedTitle?: string
+): string {
+	if (storyParts.length === 0) {
+		return '';
+	}
+
+	if (storyParts.length === 1) {
+		return storyToTwee(storyParts[0]);
+	}
+
+	// For multiple parts, create a combined file with clear section separators
+	const sections = storyParts.map(part => {
+		const partTitle = part.partName || part.name;
+		const sectionHeader = `\n\n:: === ${partTitle} === [section]\nThis section contains the story part: ${partTitle}\n`;
+		const partTwee = storyToTwee(part);
+		return sectionHeader + partTwee;
+	});
+
+	const mainTitle =
+		combinedTitle || storyParts[0].storyFolderName || 'Combined Story';
+	const combinedHeader = `:: Combined Story: ${mainTitle}\nThis file contains ${storyParts.length} story parts combined into a single Twee file.\n\n`;
+
+	return combinedHeader + sections.join('\n\n---\n\n');
+}

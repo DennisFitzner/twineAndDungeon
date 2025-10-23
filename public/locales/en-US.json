@@ -247,6 +247,19 @@
 			"title": "Import Stories",
 			"willReplaceExisting": "A story with the same name in your library will be replaced."
 		},
+		"exportAllTwee": {
+			"title": "Export All Story Parts as Twee",
+			"exportMode": "Export Mode",
+			"combinedFile": "Combined file",
+			"separateFiles": "Separate files",
+			"namingOptions": "Naming Options",
+			"namingOption1": "Part name only",
+			"namingOption2": "Folder + part name",
+			"namingOption3": "Create folder structure",
+			"export": "Export",
+			"exporting": "Exporting...",
+			"partsCount": "{{count}} story parts will be exported"
+		},
 		"storyDetails": {
 			"storyFormatExplanation": "What's a story format?",
 			"snapToGrid": "Snap To Grid",
@@ -420,6 +433,7 @@
 		},
 		"build": {
 			"exportAsTwee": "Export As Twee",
+			"exportAllPartsAsTwee": "Export All Parts as Twee",
 			"play": "Play",
 			"proof": "Proof",
 			"publishToFile": "Publish to File",
