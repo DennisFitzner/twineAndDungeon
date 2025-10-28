@@ -22,6 +22,7 @@ describe('<PassageMap>', () => {
 				onSelect={jest.fn()}
 				passages={passages}
 				startPassageId={passages[0].id}
+				story={{id: 'test-story', characters: []} as any}
 				tagColors={{}}
 				visibleZoom={1}
 				zoom={1}

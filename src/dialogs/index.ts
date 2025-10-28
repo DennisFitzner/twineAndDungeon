@@ -12,3 +12,4 @@ export * from './story-details';
 export * from './story-search';
 export * from './story-stylesheet';
 export * from './story-tags';
+export * from './story-parts-browser';

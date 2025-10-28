@@ -9,6 +9,7 @@ import {
 } from '../../../util/geometry';
 import {Passage} from '../../../store/stories';
 import './passage-connection.css';
+import {emitNavigateTo} from '../../../store/navigation-events';
 
 export interface PassageConnectionProps {
 	end: Passage;
@@ -99,6 +100,12 @@ export const PassageConnection: React.FC<PassageConnectionProps> = props => {
 			d={path}
 			className={`passage-connection variant-${variant}`}
 			style={{markerEnd: 'url(#link-arrowhead)'}}
+			onClick={() =>
+				emitNavigateTo(end.story, end.id, {
+					openEditor: true,
+					centerAndHighlight: true
+				})
+			}
 		/>
 	);
 };

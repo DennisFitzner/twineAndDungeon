@@ -7,7 +7,7 @@ import {
 } from '../stories.types';
 import {passageDefaults} from '../defaults';
 import {rectsIntersect} from '../../../util/geometry';
-import {parseLinks} from '../../../util/parse-links';
+import {parseLinks, parseCrossPartLinkTarget} from '../../../util/parse-links';
 
 /**
  * Creates newly linked passages from a passage. You shouldn't need to call this
@@ -26,9 +26,39 @@ export function createNewlyLinkedPassages(
 
 	return dispatch => {
 		const oldLinks = parseLinks(oldText);
-		const toCreate = parseLinks(newText).filter(
-			l => !oldLinks.includes(l) && !story.passages.some(p => p.name === l)
-		);
+		const newLinks = parseLinks(newText);
+
+		// Handle both local links and cross-part links
+		const toCreate: Array<{
+			name: string;
+			isInterlink?: boolean;
+			targetStory?: string;
+			targetPassage?: string;
+		}> = [];
+
+		newLinks.forEach(linkText => {
+			// Skip if it was already in old text
+			if (oldLinks.includes(linkText)) return;
+
+			// Skip if passage already exists locally
+			if (story.passages.some(p => p.name === linkText)) return;
+
+			// Check if this is a cross-part link (contains colon)
+			const crossPartTarget = parseCrossPartLinkTarget(`[[${linkText}]]`);
+			if (crossPartTarget && crossPartTarget.part) {
+				// This is a cross-part link, create an interlink card
+				// Use a special name format to avoid conflicts with actual passages
+				toCreate.push({
+					name: `→ ${crossPartTarget.part}:${crossPartTarget.passage}`,
+					isInterlink: true,
+					targetStory: crossPartTarget.part,
+					targetPassage: crossPartTarget.passage
+				});
+			} else {
+				// This is a local link, create a regular passage
+				toCreate.push({name: linkText});
+			}
+		});
 
 		if (toCreate.length === 0) {
 			return;
@@ -85,8 +115,22 @@ export function createNewlyLinkedPassages(
 		dispatch({
 			type: 'createPassages',
 			storyId: story.id,
-			props: toCreate.map(name => {
-				const result = {left, name, top};
+			props: toCreate.map(item => {
+				const result = {
+					left,
+					name: item.name,
+					top,
+					// Add special tags for interlink cards
+					tags: item.isInterlink
+						? [
+								'interlink',
+								`target-story:${item.targetStory}`,
+								`target-passage:${item.targetPassage}`
+						  ]
+						: [],
+					// Add explicit empty text for interlink cards to prevent them from being parsed as links
+					text: item.isInterlink ? '' : undefined
+				};
 
 				left += passageDefs.width + passageGap;
 				return result;

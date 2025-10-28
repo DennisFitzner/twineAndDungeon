@@ -52,7 +52,18 @@ export interface Passage {
 	width: number;
 }
 
+export interface Character {
+	id: string;
+	name: string;
+	color?: string;
+	image?: string;
+}
+
 export interface Story {
+	/**
+	 * Characters available in this story.
+	 */
+	characters?: Character[];
 	/**
 	 * IFID of the story. An IFID should stay stable when a story is imported or exported.
 	 */
@@ -70,6 +81,10 @@ export interface Story {
 	 */
 	name: string;
 	/**
+	 * Name of this story part (filename without .html).
+	 */
+	partName?: string;
+	/**
 	 * Passages in the story.
 	 */
 	passages: Passage[];
@@ -85,6 +100,10 @@ export interface Story {
 	 * Should passages snap to a grid?
 	 */
 	snapToGrid: boolean;
+	/**
+	 * Name of the story folder this part belongs to.
+	 */
+	storyFolderName?: string;
 	/**
 	 * ID of the passage that the story begins at.
 	 */

@@ -1,13 +1,15 @@
 import classNames from 'classnames';
 import {deviceType} from 'detect-it';
 import * as React from 'react';
-import {DraggableCore, DraggableCoreProps} from 'react-draggable';
+import {DraggableCoreProps} from 'react-draggable';
 import {useTranslation} from 'react-i18next';
 import {CardContent} from '../container/card';
 import {SelectableCard} from '../container/card/selectable-card';
-import {Passage, TagColors} from '../../store/stories';
+import {Passage, TagColors, Story} from '../../store/stories';
 import {TagStripe} from '../tag/tag-stripe';
 import {passageIsEmpty} from '../../util/passage-is-empty';
+import {DraggableCoreWrapper} from './draggable-core-wrapper';
+import {emitNavigateTo} from '../../store/navigation-events';
 import './passage-card.css';
 
 export interface PassageCardProps {
@@ -18,6 +20,7 @@ export interface PassageCardProps {
 	onDragStop?: DraggableCoreProps['onStop'];
 	onSelect: (passage: Passage, exclusive: boolean) => void;
 	passage: Passage;
+	story: Story;
 	tagColors: TagColors;
 }
 
@@ -33,16 +36,45 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		onEdit,
 		onSelect,
 		passage,
+		story,
 		tagColors
 	} = props;
 	const {t} = useTranslation();
+	// Detect if this is an interlink card (cross-part link)
+	const isInterlink = React.useMemo(() => {
+		return passage.tags.includes('interlink');
+	}, [passage.tags]);
+
+	// Detect if this is a back-reference passage
+	const isBackReference = React.useMemo(() => {
+		return passage.name.startsWith('← ');
+	}, [passage.name]);
+
+	// Extract story part name for display
+	const storyPartName = React.useMemo(() => {
+		if (isInterlink) {
+			// For interlink cards, extract from tags
+			const targetStoryTag = passage.tags.find(tag =>
+				tag.startsWith('target-story:')
+			);
+			return targetStoryTag ? targetStoryTag.replace('target-story:', '') : '';
+		} else if (isBackReference) {
+			// For backlink cards, extract from the back-reference text
+			const backRefMatch = passage.text.match(/Back-reference from (.+):/);
+			return backRefMatch ? backRefMatch[1] : '';
+		}
+		return '';
+	}, [isInterlink, isBackReference, passage.tags, passage.text]);
+
 	const className = React.useMemo(
 		() =>
 			classNames('passage-card', {
 				empty: passageIsEmpty(passage),
-				selected: passage.selected
+				selected: passage.selected,
+				interlink: isInterlink,
+				'back-reference': isBackReference
 			}),
-		[passage]
+		[passage, isInterlink, isBackReference]
 	);
 	const container = React.useRef<HTMLDivElement>(null);
 	const excerpt = React.useMemo(() => {
@@ -60,14 +92,71 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 			</span>
 		);
 	}, [passage.text, t]);
+	// Get character colors for border styling
+	const characterBorderStyle = React.useMemo(() => {
+		if (!story.characters || story.characters.length === 0) {
+			return {};
+		}
+
+		// Find character tag
+		const characterTag = passage.tags.find(tag =>
+			tag.startsWith('characters:')
+		);
+		if (!characterTag) {
+			return {};
+		}
+
+		// Parse character IDs
+		const characterIds = characterTag
+			.replace('characters:', '')
+			.split(',')
+			.filter(id => id);
+
+		// Get character colors
+		const characterColors = characterIds
+			.map(id => story.characters?.find(char => char.id === id)?.color)
+			.filter(color => color);
+
+		if (characterColors.length === 0) {
+			return {};
+		}
+
+		// Create border style based on number of characters
+		if (characterColors.length === 1) {
+			return {
+				border: `3px solid ${characterColors[0]}`
+			};
+		} else {
+			// Multiple characters - create gradient border
+			const gradientStops = characterColors
+				.map(
+					(color, index) =>
+						`${color} ${(index / (characterColors.length - 1)) * 100}%`
+				)
+				.join(', ');
+
+			return {
+				border: '3px solid',
+				borderImage: `linear-gradient(45deg, ${gradientStops}) 1`
+			};
+		}
+	}, [passage.tags, story.characters]);
+
 	const style = React.useMemo(
 		() => ({
 			height: passage.height,
 			left: passage.left,
 			top: passage.top,
-			width: passage.width
+			width: passage.width,
+			...characterBorderStyle
 		}),
-		[passage.height, passage.left, passage.top, passage.width]
+		[
+			passage.height,
+			passage.left,
+			passage.top,
+			passage.width,
+			characterBorderStyle
+		]
 	);
 	const handleMouseDown = React.useCallback(
 		(event: MouseEvent) => {
@@ -88,10 +177,46 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		},
 		[onDeselect, onSelect, passage]
 	);
-	const handleEdit = React.useCallback(
-		() => onEdit(passage),
-		[onEdit, passage]
-	);
+	const handleEdit = React.useCallback(() => {
+		// For interlink passages, navigate to the correct tab instead of editing
+		if (isInterlink) {
+			// Extract target story and passage from tags
+			const targetStoryTag = passage.tags.find(tag =>
+				tag.startsWith('target-story:')
+			);
+			const targetPassageTag = passage.tags.find(tag =>
+				tag.startsWith('target-passage:')
+			);
+
+			if (targetStoryTag && targetPassageTag) {
+				const targetStory = targetStoryTag.replace('target-story:', '');
+				const targetPassage = targetPassageTag.replace('target-passage:', '');
+
+				emitNavigateTo(targetStory, undefined, {
+					openEditor: true,
+					centerAndHighlight: true,
+					fallbackPassageName: targetPassage
+				});
+			}
+		} else if (isBackReference) {
+			// For back-reference passages, navigate to the original passage that created the link
+			// Extract the source story and passage from the back-reference text
+			const backRefMatch = passage.text.match(/Back-reference from (.+):(.+)/);
+			if (backRefMatch) {
+				const sourceStoryName = backRefMatch[1];
+				const sourcePassageName = backRefMatch[2];
+
+				// Navigate to the source story and passage
+				emitNavigateTo(sourceStoryName, undefined, {
+					openEditor: true,
+					centerAndHighlight: true,
+					fallbackPassageName: sourcePassageName
+				});
+			}
+		} else {
+			onEdit(passage);
+		}
+	}, [onEdit, passage, isInterlink, isBackReference]);
 	const handleSelect = React.useCallback(
 		(value: boolean, exclusive: boolean) => {
 			onSelect(passage, exclusive);
@@ -99,15 +224,35 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		[onSelect, passage]
 	);
 
+	// For interlink and back-reference passages, we need to handle dragging differently
+	// They should be draggable but won't affect the story data
+	const dragHandlers =
+		isInterlink || isBackReference
+			? {
+					onStart: onDragStart,
+					onDrag: onDrag,
+					onStop: onDragStop
+			  }
+			: {
+					onStart: onDragStart,
+					onDrag: onDrag,
+					onStop: onDragStop
+			  };
+
 	return (
-		<DraggableCore
+		<DraggableCoreWrapper
 			nodeRef={container}
 			onMouseDown={handleMouseDown}
-			onStart={onDragStart}
-			onDrag={onDrag}
-			onStop={onDragStop}
+			onStart={dragHandlers.onStart}
+			onDrag={dragHandlers.onDrag}
+			onStop={dragHandlers.onStop}
 		>
-			<div className={className} ref={container} style={style} data-passage-tags={passage.tags.join(' ')}>
+			<div
+				className={className}
+				ref={container}
+				style={style}
+				data-passage-tags={passage.tags.join(' ')}
+			>
 				<SelectableCard
 					highlighted={passage.highlighted}
 					label={passage.name}
@@ -116,11 +261,50 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 					selected={passage.selected}
 				>
 					<TagStripe tagColors={tagColors} tags={passage.tags} />
+					{/* Character thumbnails */}
+					{(() => {
+						const characterTag = passage.tags.find(tag =>
+							tag.startsWith('characters:')
+						);
+						if (!characterTag || !story.characters) return null;
+
+						const characterIds = characterTag
+							.replace('characters:', '')
+							.split(',')
+							.filter(id => id);
+
+						const assignedCharacters = characterIds
+							.map(id => story.characters?.find(char => char.id === id))
+							.filter(
+								(char): char is NonNullable<typeof char> =>
+									char != null && char.image != null
+							);
+
+						if (assignedCharacters.length === 0) return null;
+
+						return (
+							<div className="passage-character-thumbnails">
+								{assignedCharacters.map(character => (
+									<img
+										key={character.id}
+										alt={character.name}
+										className="passage-character-thumbnail"
+										src={character.image}
+										title={character.name}
+									/>
+								))}
+							</div>
+						);
+					})()}
+					{/* Show story part name for interlink and backlink cards */}
+					{(isInterlink || isBackReference) && storyPartName && (
+						<div className="story-part-name">{storyPartName}</div>
+					)}
 					<h2>{passage.name}</h2>
 					<CardContent>{excerpt}</CardContent>
 				</SelectableCard>
 			</div>
-		</DraggableCore>
+		</DraggableCoreWrapper>
 	);
 });
 

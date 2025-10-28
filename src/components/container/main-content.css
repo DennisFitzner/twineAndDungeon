@@ -3,11 +3,11 @@
 
 .main-content {
 	background: var(--off-white);
-	min-height: calc(100vh - 2 * var(--control-height));
+	min-height: calc(100vh - 3 * var(--control-height));
 	overflow: auto;
 	position: fixed;
-	top: calc(2 * var(--control-height));
-	/* height of <top-bar> */
+	top: calc(3 * var(--control-height));
+	/* height of <top-bar> + additional row */
 	left: 0;
 	right: 0;
 	bottom: 0;
