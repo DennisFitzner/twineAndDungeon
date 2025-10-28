@@ -5,6 +5,7 @@ import {PassageConnectionGroup} from './passage-connection-group';
 import {LinkMarkers} from './link-markers';
 import {StartConnection} from './start-connection';
 import {useFormatReferenceParser} from '../../../store/use-format-reference-parser';
+import {parseLinks, parseCrossPartLinkTarget} from '../../../util/parse-links';
 
 export interface PassageConnectionsProps {
 	formatName: string;
@@ -12,25 +13,126 @@ export interface PassageConnectionsProps {
 	offset: Point;
 	passages: Passage[];
 	startPassageId: string;
+	crossPartConnectionParser?: (text: string) => string[];
 }
 
 const emptySet = new Set<Passage>();
 const noOffset: Point = {left: 0, top: 0};
 
 export const PassageConnections: React.FC<PassageConnectionsProps> = props => {
-	const {formatName, formatVersion, offset, passages, startPassageId} = props;
+	const {
+		formatName,
+		formatVersion,
+		offset,
+		passages,
+		startPassageId,
+		crossPartConnectionParser
+	} = props;
 	const referenceParser = useFormatReferenceParser(formatName, formatVersion);
-	const {draggable: draggableLinks, fixed: fixedLinks} = React.useMemo(
-		() => passageConnections(passages),
+
+	// Use custom parser if provided, otherwise use default
+	const connectionParser =
+		crossPartConnectionParser || ((text: string) => parseLinks(text, true));
+
+	// Memoize passage filtering to avoid repeated calculations
+	const {interlinkCards, backlinkCards} = React.useMemo(
+		() => ({
+			interlinkCards: passages.filter(p => p.tags.includes('interlink')),
+			backlinkCards: passages.filter(p => p.name.startsWith('← '))
+		}),
 		[passages]
 	);
-	const {
-		draggable: draggableReferences,
-		fixed: fixedReferences
-	} = React.useMemo(() => passageConnections(passages, referenceParser), [
-		passages,
-		referenceParser
-	]);
+
+	const {draggable: draggableLinks, fixed: fixedLinks} = React.useMemo(() => {
+		const connections = passageConnections(passages, connectionParser);
+
+		// Add connections for interlink cards
+		// Interlink cards should connect to the passage that contains the cross-part link (source passage)
+		interlinkCards.forEach(interlinkCard => {
+			const targetStoryTag = interlinkCard.tags.find(tag =>
+				tag.startsWith('target-story:')
+			);
+			const targetPassageTag = interlinkCard.tags.find(tag =>
+				tag.startsWith('target-passage:')
+			);
+
+			if (targetStoryTag && targetPassageTag) {
+				const targetStoryName = targetStoryTag.replace('target-story:', '');
+				const targetPassageName = targetPassageTag.replace(
+					'target-passage:',
+					''
+				);
+
+				// Find the passage that contains the cross-part link that created this interlink
+				const sourcePassage = passages.find(passage => {
+					const links = parseLinks(passage.text);
+					return links.some(linkText => {
+						const crossPartTarget = parseCrossPartLinkTarget(`[[${linkText}]]`);
+						return (
+							crossPartTarget &&
+							crossPartTarget.part === targetStoryName &&
+							crossPartTarget.passage === targetPassageName
+						);
+					});
+				});
+
+				if (sourcePassage) {
+					// Add connection from source passage to interlink card
+					// (source passage -> interlink card)
+					if (sourcePassage.selected || interlinkCard.selected) {
+						if (!connections.draggable.connections.has(sourcePassage)) {
+							connections.draggable.connections.set(sourcePassage, new Set());
+						}
+						connections.draggable.connections
+							.get(sourcePassage)!
+							.add(interlinkCard);
+					} else {
+						if (!connections.fixed.connections.has(sourcePassage)) {
+							connections.fixed.connections.set(sourcePassage, new Set());
+						}
+						connections.fixed.connections
+							.get(sourcePassage)!
+							.add(interlinkCard);
+					}
+				}
+			}
+		});
+
+		// Add connections for backlink cards
+		// Backlink cards should connect to the passage they reference (target passage)
+		backlinkCards.forEach(backlinkCard => {
+			// Extract the target passage name from the backlink card name
+			// Format: "← PassageName"
+			const targetPassageName = backlinkCard.name.replace(/^← /, '').trim();
+			if (targetPassageName) {
+				const targetPassage = passages.find(p => p.name === targetPassageName);
+				if (targetPassage) {
+					// Add connection from backlink card to target passage
+					// (backlink card -> target passage)
+					if (backlinkCard.selected || targetPassage.selected) {
+						if (!connections.draggable.connections.has(backlinkCard)) {
+							connections.draggable.connections.set(backlinkCard, new Set());
+						}
+						connections.draggable.connections
+							.get(backlinkCard)!
+							.add(targetPassage);
+					} else {
+						if (!connections.fixed.connections.has(backlinkCard)) {
+							connections.fixed.connections.set(backlinkCard, new Set());
+						}
+						connections.fixed.connections.get(backlinkCard)!.add(targetPassage);
+					}
+				}
+			}
+		});
+
+		return connections;
+	}, [passages, connectionParser]);
+	const {draggable: draggableReferences, fixed: fixedReferences} =
+		React.useMemo(
+			() => passageConnections(passages, referenceParser),
+			[passages, referenceParser]
+		);
 
 	const startPassage = React.useMemo(
 		() => passages.find(passage => passage.id === startPassageId),

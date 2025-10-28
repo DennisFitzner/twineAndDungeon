@@ -16,9 +16,11 @@ export interface PassageMapProps {
 	onSelect: (passage: Passage, exclusive: boolean) => void;
 	passages: Passage[];
 	startPassageId: string;
+	story: Story;
 	tagColors: Story['tagColors'];
 	visibleZoom: number;
 	zoom: number;
+	crossPartConnectionParser?: (text: string) => string[];
 }
 
 interface DragState {
@@ -79,9 +81,11 @@ export const PassageMap: React.FC<PassageMapProps> = props => {
 		onSelect,
 		passages,
 		startPassageId,
+		story,
 		tagColors,
 		visibleZoom,
-		zoom
+		zoom,
+		crossPartConnectionParser
 	} = props;
 	const [compactCards, setCompactCards] = React.useState(
 		visibleZoom <= compactCardZoom
@@ -211,6 +215,7 @@ export const PassageMap: React.FC<PassageMapProps> = props => {
 				}}
 				passages={passages}
 				startPassageId={startPassageId}
+				crossPartConnectionParser={crossPartConnectionParser}
 			/>
 			<PassageCardGroup
 				onDeselect={onDeselect}
@@ -220,6 +225,7 @@ export const PassageMap: React.FC<PassageMapProps> = props => {
 				onEdit={onEdit}
 				onSelect={handleSelect}
 				passages={passages}
+				story={story}
 				tagColors={tagColors}
 			/>
 		</div>

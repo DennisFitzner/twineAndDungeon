@@ -4,6 +4,8 @@ import {DialogEditor} from '../../components/container/dialog-card';
 import {CodeArea} from '../../components/control/code-area';
 import {usePrefsContext} from '../../store/prefs';
 import {Passage, Story} from '../../store/stories';
+import {emitNavigateTo} from '../../store/navigation-events';
+import {parseCrossPartLinkTarget} from '../../util/parse-links';
 import {StoryFormat} from '../../store/story-formats';
 import {useCodeMirrorPassageHints} from '../../store/use-codemirror-passage-hints';
 import {useFormatCodeMirrorMode} from '../../store/use-format-codemirror-mode';
@@ -15,6 +17,7 @@ export interface PassageTextProps {
 	onEditorChange: (value: CodeMirror.Editor) => void;
 	passage: Passage;
 	story: Story;
+	siblingStories?: Story[];
 	storyFormat: StoryFormat;
 	storyFormatExtensionsDisabled?: boolean;
 }
@@ -31,7 +34,10 @@ export const PassageText: React.FC<PassageTextProps> = props => {
 	} = props;
 	const [localText, setLocalText] = React.useState(passage.text);
 	const {prefs} = usePrefsContext();
-	const autocompletePassageNames = useCodeMirrorPassageHints(story);
+	const autocompletePassageNames = useCodeMirrorPassageHints(
+		story,
+		props.siblingStories
+	);
 	const mode =
 		useFormatCodeMirrorMode(storyFormat.name, storyFormat.version) ?? 'text';
 	const codeAreaContainerRef = React.useRef<HTMLDivElement>(null);
@@ -120,8 +126,87 @@ export const PassageText: React.FC<PassageTextProps> = props => {
 				editor.focus();
 				editor.refresh();
 			}, 400);
+
+			// Ctrl/Cmd-click navigation inside [[...]]
+			editor.on('mousedown', (_cm: any, ev: MouseEvent) => {
+				const isMeta = ev.metaKey || ev.ctrlKey;
+				if (!isMeta) return;
+
+				const cm = editor as any;
+				const pos = cm.coordsChar({left: ev.clientX, top: ev.clientY});
+				const lineText: string = cm.getLine(pos.line);
+				// Find closest [[ ... ]] around cursor
+				const before = lineText.lastIndexOf('[[', pos.ch);
+				const after = lineText.indexOf(']]', pos.ch);
+				if (before === -1 || after === -1 || after <= before + 2) return;
+				const tag = lineText.substring(before, after + 2);
+				const target = parseCrossPartLinkTarget(tag);
+				if (!target) return;
+
+				// Resolve target story part
+				const siblings = props.siblingStories || [];
+				let targetStory: Story | undefined = story;
+				if (target.part) {
+					const partLower = target.part.toLowerCase();
+					targetStory = siblings.find(
+						s => (s.partName || s.name).toLowerCase() === partLower
+					);
+				}
+				if (!targetStory) return;
+
+				const passageNameLower = target.passage.toLowerCase();
+				const match = targetStory.passages.find(
+					p => p.name.toLowerCase() === passageNameLower
+				);
+
+				emitNavigateTo(targetStory.id, match ? match.id : undefined, {
+					openEditor: true,
+					centerAndHighlight: true,
+					fallbackPassageName: target.passage
+				});
+			});
+
+			// Hover tooltip for link under cursor
+			editor.on('mousemove', (_cm: any, ev: MouseEvent) => {
+				const cm = editor as any;
+				const pos = cm.coordsChar({left: ev.clientX, top: ev.clientY});
+				const lineText: string = cm.getLine(pos.line);
+				const before = lineText.lastIndexOf('[[', pos.ch);
+				const after = lineText.indexOf(']]', pos.ch);
+				const wrapper: HTMLElement = cm.getWrapperElement();
+				if (before === -1 || after === -1 || after <= before + 2) {
+					if (wrapper.title) wrapper.title = '';
+					return;
+				}
+				const tag = lineText.substring(before, after + 2);
+				const target = parseCrossPartLinkTarget(tag);
+				if (!target) {
+					if (wrapper.title) wrapper.title = '';
+					return;
+				}
+				const siblings = props.siblingStories || [];
+				let targetStory: Story | undefined = story;
+				if (target.part) {
+					const partLower = target.part.toLowerCase();
+					targetStory = siblings.find(
+						s => (s.partName || s.name).toLowerCase() === partLower
+					);
+				}
+				const fullLabel = target.part
+					? `${target.part.trim()}: ${target.passage}`
+					: `${target.passage}`;
+				if (!targetStory) {
+					wrapper.title = `${fullLabel} (not found: story part)`;
+					return;
+				}
+				const passageNameLower = target.passage.toLowerCase();
+				const match = targetStory.passages.find(
+					(p: Passage) => p.name.toLowerCase() === passageNameLower
+				);
+				wrapper.title = match ? fullLabel : `${fullLabel} (not found)`;
+			});
 		},
-		[onEditorChange]
+		[onEditorChange, story, props.siblingStories]
 	);
 
 	// Emulate the above behavior re: focus if we aren't using CodeMirror.

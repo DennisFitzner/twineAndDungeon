@@ -33,6 +33,10 @@ export const InnerStoryListRoute: React.FC = () => {
 		[stories]
 	);
 
+	const [selectedFolders, setSelectedFolders] = React.useState<Set<string>>(
+		new Set()
+	);
+
 	const visibleStories = React.useMemo(() => {
 		const filteredStories =
 			prefs.storyListTagFilter.length > 0
@@ -41,23 +45,74 @@ export const InnerStoryListRoute: React.FC = () => {
 				  )
 				: stories;
 
+		// Group stories by folder, showing only unique folders
+		const folderMap = new Map<
+			string,
+			{
+				folderName: string;
+				stories: (typeof filteredStories)[0][];
+				lastUpdate: Date;
+			}
+		>();
+
+		for (const story of filteredStories) {
+			// For stories without storyFolderName, use the story name as the folder key
+			// This ensures existing single-part stories are treated as their own folder
+			const folderKey = story.storyFolderName || story.name;
+
+			if (!folderMap.has(folderKey)) {
+				folderMap.set(folderKey, {
+					folderName: folderKey,
+					stories: [story],
+					lastUpdate: story.lastUpdate
+				});
+			} else {
+				const folder = folderMap.get(folderKey)!;
+				folder.stories.push(story);
+				// Update lastUpdate to the most recent story in the folder
+				if (story.lastUpdate > folder.lastUpdate) {
+					folder.lastUpdate = story.lastUpdate;
+				}
+			}
+		}
+
+		// Convert folder map to array of folder objects
+		const folders = Array.from(folderMap.values());
+
 		switch (prefs.storyListSort) {
 			case 'date':
-				return orderBy(filteredStories, ['lastUpdate'], ['desc']);
+				return orderBy(folders, ['lastUpdate'], ['desc']);
 			case 'name':
-				return orderBy(filteredStories, 'name');
+				return orderBy(folders, 'folderName');
 		}
 	}, [prefs.storyListSort, prefs.storyListTagFilter, stories]);
 
 	// Any stories no longer visible should be deselected.
 
 	React.useEffect(() => {
+		// Get all stories from visible folders
+		const allVisibleStories = (visibleStories as any[]).flatMap(
+			folder => folder.stories || [folder]
+		);
+
 		for (const story of selectedStories) {
-			if (story.selected && !visibleStories.includes(story)) {
+			if (story.selected && !allVisibleStories.includes(story)) {
 				storiesDispatch(deselectStory(story));
 			}
 		}
 	}, [selectedStories, stories, storiesDispatch, visibleStories]);
+
+	function handleSelectFolder(folderName: string) {
+		setSelectedFolders(prev => {
+			const newSet = new Set(prev);
+			if (newSet.has(folderName)) {
+				newSet.delete(folderName);
+			} else {
+				newSet.add(folderName);
+			}
+			return newSet;
+		});
+	}
 
 	React.useEffect(() => {
 		if (shouldShowDonationPrompt()) {
@@ -89,7 +144,10 @@ export const InnerStoryListRoute: React.FC = () => {
 								onSelectStory={story =>
 									storiesDispatch(selectStory(story, true))
 								}
+								onSelectFolder={handleSelectFolder}
 								stories={visibleStories}
+								isFolderView={true}
+								selectedFolders={selectedFolders}
 							/>
 						)}
 					</div>

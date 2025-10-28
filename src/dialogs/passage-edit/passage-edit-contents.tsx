@@ -34,6 +34,16 @@ export const PassageEditContents: React.FC<
 	const {formats} = useStoryFormatsContext();
 	const passage = passageWithId(stories, storyId, passageId);
 	const story = storyWithId(stories, storyId);
+	// Sibling stories in same folder for cross-part hints
+	const siblingStories = React.useMemo(
+		() =>
+			stories.filter(
+				s =>
+					(s.storyFolderName || s.name) ===
+					(story.storyFolderName || story.name)
+			),
+		[stories, story.storyFolderName, story.name]
+	);
 	const storyFormat = formatWithNameAndVersion(
 		formats,
 		story.storyFormat,
@@ -113,6 +123,7 @@ export const PassageEditContents: React.FC<
 					onEditorChange={setCmEditor}
 					passage={passage}
 					story={story}
+					siblingStories={siblingStories}
 					storyFormat={storyFormat}
 					storyFormatExtensionsDisabled={!storyFormatExtensionsEnabled}
 				/>

@@ -15,6 +15,7 @@ describe('<PassageCardGroup>', () => {
 				onEdit={jest.fn()}
 				passages={[fakePassage(), fakePassage()]}
 				onSelect={jest.fn()}
+				story={{id: 'test-story', characters: []} as any}
 				tagColors={{}}
 				{...props}
 			/>
@@ -53,7 +54,7 @@ describe('<PassageCardGroup>', () => {
 			`mock-passage-card-${passages[2].name}`
 		);
 	});
-	
+
 	it.todo('passes through drag-related props');
 
 	it('is accessible', async () => {

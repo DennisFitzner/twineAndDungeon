@@ -77,3 +77,48 @@ export function parseLinks(text: string, internalOnly?: boolean) {
 
 	return result;
 }
+
+/**
+ * Parses a single link target, returning the optional story part and passage name.
+ * Accepts raw tag text (with or without surrounding brackets) and supports:
+ * - [[Part:Passage]]
+ * - [[ Part : Passage ]]
+ * - [[label->Part:Passage]]
+ * - [[Passage<-label]]
+ * - [[Passage]]
+ */
+export function parseCrossPartLinkTarget(
+	raw: string
+): {part?: string; passage: string} | null {
+	if (!raw) {
+		return null;
+	}
+
+	// If the caller passes a full tag, strip enclosing brackets first.
+	let content = raw;
+	const fullTagMatch = raw.match(/^\[\[(.*)\]\]$/);
+	if (fullTagMatch) {
+		content = fullTagMatch[1];
+	}
+
+	// Remove setters (the second [] block if present) and reduce to the link target using existing rules
+	const withoutSetters = removeSetters(content);
+	const target = extractLink(withoutSetters).trim();
+
+	if (!target) {
+		return null;
+	}
+
+	// Split on the first colon with optional spaces around it to separate Part and Passage.
+	const colonMatch = target.match(/^(.*?)(\s*:\s*)(.+)$/);
+	if (colonMatch) {
+		const part = colonMatch[1].trim();
+		const passage = colonMatch[3].trim();
+		if (passage) {
+			return {part, passage};
+		}
+	}
+
+	// No part specified; treat entire target as passage name
+	return {passage: target};
+}
