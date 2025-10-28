@@ -41,11 +41,44 @@ export const InnerStoryListRoute: React.FC = () => {
 				  )
 				: stories;
 
+		// Group stories by folder, showing only one representative per folder
+		const groupedStories = new Map<string, (typeof filteredStories)[0]>();
+
+		for (const story of filteredStories) {
+			// For stories without storyFolderName, use the story name as the folder key
+			// This ensures existing single-part stories are treated as their own folder
+			const folderKey = story.storyFolderName || story.name;
+
+			// Debug logging
+			console.log(
+				'Story:',
+				story.name,
+				'Folder:',
+				story.storyFolderName,
+				'Part:',
+				story.partName,
+				'Key:',
+				folderKey
+			);
+
+			if (!groupedStories.has(folderKey)) {
+				groupedStories.set(folderKey, story);
+			} else {
+				// If multiple parts exist, keep the one with the most recent update
+				const existing = groupedStories.get(folderKey)!;
+				if (story.lastUpdate > existing.lastUpdate) {
+					groupedStories.set(folderKey, story);
+				}
+			}
+		}
+
+		const uniqueStories = Array.from(groupedStories.values());
+
 		switch (prefs.storyListSort) {
 			case 'date':
-				return orderBy(filteredStories, ['lastUpdate'], ['desc']);
+				return orderBy(uniqueStories, ['lastUpdate'], ['desc']);
 			case 'name':
-				return orderBy(filteredStories, 'name');
+				return orderBy(uniqueStories, 'name');
 		}
 	}, [prefs.storyListSort, prefs.storyListTagFilter, stories]);
 

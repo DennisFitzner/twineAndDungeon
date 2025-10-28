@@ -11,6 +11,21 @@ import {contextBridge, ipcRenderer} from 'electron';
 import {Story} from '../../store/stories/stories.types';
 
 contextBridge.exposeInMainWorld('twineElectron', {
+	createStoryPart(storyFolderName: string, partName: string) {
+		return ipcRenderer.invoke('create-story-part', storyFolderName, partName);
+	},
+	openFileDialog(options: Electron.OpenDialogOptions) {
+		return ipcRenderer.invoke('open-file-dialog', options);
+	},
+	readFile(filePath: string) {
+		return ipcRenderer.invoke('read-file', filePath);
+	},
+	getStoryFolderPath(story: Story) {
+		return ipcRenderer.invoke('get-story-folder-path', story);
+	},
+	scanStoryParts(storyFolderPath: string) {
+		return ipcRenderer.invoke('scan-story-parts', storyFolderPath);
+	},
 	deleteStory(story: Story) {
 		ipcRenderer.send('delete-story', story);
 	},
@@ -35,7 +50,7 @@ contextBridge.exposeInMainWorld('twineElectron', {
 	saveJson(filename: string, data: any) {
 		ipcRenderer.send('save-json', filename, data);
 	},
-	saveStoryHtml(story: Story, data: string) {
-		ipcRenderer.send('save-story-html', story, data);
+	saveStoryHtml(story: Story, data: string, filename?: string) {
+		ipcRenderer.send('save-story-html', story, data, filename);
 	}
 });

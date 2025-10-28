@@ -4,15 +4,17 @@ import type {DebouncedFunc} from 'lodash';
 import {i18n} from './locales';
 import {saveJsonFile} from './json-file';
 import {
+	createStoryPart,
 	deleteStory,
 	loadStories,
 	renameStory,
 	saveStoryHtml
 } from './story-file';
+import {Story} from '../../store/stories/stories.types';
+import {readFile} from 'fs-extra';
 import {loadStoryFormats} from './story-formats';
 import {loadPrefs} from './prefs';
 import {openWithScratchFile} from './scratch-file';
-import {Story} from '../../store/stories/stories.types';
 
 export function initIpc() {
 	// We want to debounce story saves so we aren't constantly writing to disk.
@@ -26,7 +28,12 @@ export function initIpc() {
 	const storySavers: Record<
 		string,
 		DebouncedFunc<
-			(event: any, story: Story, storyHtml: string) => Promise<void>
+			(
+				event: any,
+				story: Story,
+				storyHtml: string,
+				filename?: string
+			) => Promise<void>
 		>
 	> = {};
 
@@ -67,6 +74,92 @@ export function initIpc() {
 		}
 	});
 
+	ipcMain.handle(
+		'create-story-part',
+		async (event, storyFolderName: string, partName: string) => {
+			try {
+				await createStoryPart(storyFolderName, partName);
+				return {success: true};
+			} catch (error) {
+				console.error(`Error creating story part: ${error}`);
+				throw error;
+			}
+		}
+	);
+
+	ipcMain.handle(
+		'open-file-dialog',
+		async (event, options: Electron.OpenDialogOptions) => {
+			const result = await dialog.showOpenDialog(options);
+			return result;
+		}
+	);
+
+	ipcMain.handle('read-file', async (event, filePath: string) => {
+		try {
+			const content = await readFile(filePath, 'utf8');
+			return content;
+		} catch (error) {
+			throw new Error(
+				`Failed to read file ${filePath}: ${(error as Error).message}`
+			);
+		}
+	});
+
+	ipcMain.handle('get-story-folder-path', async (event, story: Story) => {
+		try {
+			const {getStoryFolderPath} = await import('./story-file');
+			return getStoryFolderPath(story);
+		} catch (error) {
+			throw new Error(
+				`Failed to get story folder path: ${(error as Error).message}`
+			);
+		}
+	});
+
+	ipcMain.handle('scan-story-parts', async (event, storyFolderPath: string) => {
+		try {
+			const {readdir, stat} = await import('fs-extra');
+			const {join, relative} = await import('path');
+
+			const parts: Array<{
+				path: string;
+				name: string;
+				relativePath: string;
+				isDirectory: boolean;
+			}> = [];
+
+			const scanDirectory = async (dirPath: string, relativeTo: string) => {
+				const entries = await readdir(dirPath);
+
+				for (const entry of entries) {
+					const fullPath = join(dirPath, entry);
+					const stats = await stat(fullPath);
+					const relativePath = relative(relativeTo, fullPath);
+
+					if (stats.isDirectory()) {
+						// Recursively scan subdirectories
+						await scanDirectory(fullPath, relativeTo);
+					} else if (entry.endsWith('.html')) {
+						parts.push({
+							path: fullPath,
+							name: entry,
+							relativePath: relativePath,
+							isDirectory: false
+						});
+					}
+				}
+			};
+
+			await scanDirectory(storyFolderPath, storyFolderPath);
+			return parts;
+		} catch (error) {
+			throw new Error(
+				`Failed to scan story parts: ${(error as Error).message}`
+			);
+		}
+	});
+
 	ipcMain.on(
 		'open-with-scratch-file',
 		(event, data: string, filename: string) => {
@@ -102,7 +195,7 @@ export function initIpc() {
 		}
 	});
 
-	ipcMain.on('save-story-html', async (event, story, storyHtml) => {
+	ipcMain.on('save-story-html', async (event, story, storyHtml, filename?) => {
 		try {
 			if (typeof storyHtml !== 'string') {
 				throw new Error('Asked to save non-string as story HTML');
@@ -117,10 +210,11 @@ export function initIpc() {
 					async (
 						saverEvent: any,
 						saverStory: Story,
-						saverStoryHtml: string
+						saverStoryHtml: string,
+						saverFilename?: string
 					) => {
 						try {
-							await saveStoryHtml(saverStory, saverStoryHtml);
+							await saveStoryHtml(saverStory, saverStoryHtml, saverFilename);
 							saverEvent.sender.send('story-html-saved', saverStory);
 						} catch (error) {
 							dialog.showErrorBox(
@@ -135,7 +229,7 @@ export function initIpc() {
 				);
 			}
 
-			storySavers[story.id](event, story, storyHtml);
+			storySavers[story.id](event, story, storyHtml, filename);
 		} catch (error) {
 			dialog.showErrorBox(
 				i18n.t('electron.errors.storySave'),

@@ -75,3 +75,17 @@
 [data-app-theme='dark'] .passage-card.empty.selected .card {
 	background: hsla(212, 90%, 60%, 0.2);
 }
+
+.passage-character-thumbnails {
+	display: flex;
+	flex-wrap: wrap;
+	gap: calc(var(--grid-size) / 2);
+	margin-bottom: calc(var(--grid-size) / 2);
+}
+
+.passage-character-thumbnail {
+	border-radius: 50%;
+	height: 20px;
+	object-fit: cover;
+	width: 20px;
+}

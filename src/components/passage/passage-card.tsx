@@ -5,7 +5,7 @@ import {DraggableCore, DraggableCoreProps} from 'react-draggable';
 import {useTranslation} from 'react-i18next';
 import {CardContent} from '../container/card';
 import {SelectableCard} from '../container/card/selectable-card';
-import {Passage, TagColors} from '../../store/stories';
+import {Passage, TagColors, Story} from '../../store/stories';
 import {TagStripe} from '../tag/tag-stripe';
 import {passageIsEmpty} from '../../util/passage-is-empty';
 import './passage-card.css';
@@ -18,6 +18,7 @@ export interface PassageCardProps {
 	onDragStop?: DraggableCoreProps['onStop'];
 	onSelect: (passage: Passage, exclusive: boolean) => void;
 	passage: Passage;
+	story: Story;
 	tagColors: TagColors;
 }
 
@@ -33,6 +34,7 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 		onEdit,
 		onSelect,
 		passage,
+		story,
 		tagColors
 	} = props;
 	const {t} = useTranslation();
@@ -60,14 +62,71 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 			</span>
 		);
 	}, [passage.text, t]);
+	// Get character colors for border styling
+	const characterBorderStyle = React.useMemo(() => {
+		if (!story.characters || story.characters.length === 0) {
+			return {};
+		}
+
+		// Find character tag
+		const characterTag = passage.tags.find(tag =>
+			tag.startsWith('characters:')
+		);
+		if (!characterTag) {
+			return {};
+		}
+
+		// Parse character IDs
+		const characterIds = characterTag
+			.replace('characters:', '')
+			.split(',')
+			.filter(id => id);
+
+		// Get character colors
+		const characterColors = characterIds
+			.map(id => story.characters?.find(char => char.id === id)?.color)
+			.filter(color => color);
+
+		if (characterColors.length === 0) {
+			return {};
+		}
+
+		// Create border style based on number of characters
+		if (characterColors.length === 1) {
+			return {
+				border: `3px solid ${characterColors[0]}`
+			};
+		} else {
+			// Multiple characters - create gradient border
+			const gradientStops = characterColors
+				.map(
+					(color, index) =>
+						`${color} ${(index / (characterColors.length - 1)) * 100}%`
+				)
+				.join(', ');
+
+			return {
+				border: '3px solid',
+				borderImage: `linear-gradient(45deg, ${gradientStops}) 1`
+			};
+		}
+	}, [passage.tags, story.characters]);
+
 	const style = React.useMemo(
 		() => ({
 			height: passage.height,
 			left: passage.left,
 			top: passage.top,
-			width: passage.width
+			width: passage.width,
+			...characterBorderStyle
 		}),
-		[passage.height, passage.left, passage.top, passage.width]
+		[
+			passage.height,
+			passage.left,
+			passage.top,
+			passage.width,
+			characterBorderStyle
+		]
 	);
 	const handleMouseDown = React.useCallback(
 		(event: MouseEvent) => {
@@ -107,7 +166,12 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 			onDrag={onDrag}
 			onStop={onDragStop}
 		>
-			<div className={className} ref={container} style={style} data-passage-tags={passage.tags.join(' ')}>
+			<div
+				className={className}
+				ref={container}
+				style={style}
+				data-passage-tags={passage.tags.join(' ')}
+			>
 				<SelectableCard
 					highlighted={passage.highlighted}
 					label={passage.name}
@@ -116,6 +180,41 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 					selected={passage.selected}
 				>
 					<TagStripe tagColors={tagColors} tags={passage.tags} />
+					{/* Character thumbnails */}
+					{(() => {
+						const characterTag = passage.tags.find(tag =>
+							tag.startsWith('characters:')
+						);
+						if (!characterTag || !story.characters) return null;
+
+						const characterIds = characterTag
+							.replace('characters:', '')
+							.split(',')
+							.filter(id => id);
+
+						const assignedCharacters = characterIds
+							.map(id => story.characters?.find(char => char.id === id))
+							.filter(
+								(char): char is NonNullable<typeof char> =>
+									char != null && char.image != null
+							);
+
+						if (assignedCharacters.length === 0) return null;
+
+						return (
+							<div className="passage-character-thumbnails">
+								{assignedCharacters.map(character => (
+									<img
+										key={character.id}
+										alt={character.name}
+										className="passage-character-thumbnail"
+										src={character.image}
+										title={character.name}
+									/>
+								))}
+							</div>
+						);
+					})()}
 					<h2>{passage.name}</h2>
 					<CardContent>{excerpt}</CardContent>
 				</SelectableCard>
