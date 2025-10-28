@@ -11,6 +11,24 @@ import {contextBridge, ipcRenderer} from 'electron';
 import {Story} from '../../store/stories/stories.types';
 
 contextBridge.exposeInMainWorld('twineElectron', {
+	createStoryPart(storyFolderName: string, partName: string) {
+		return ipcRenderer.invoke('create-story-part', storyFolderName, partName);
+	},
+	openFileDialog(options: Electron.OpenDialogOptions) {
+		return ipcRenderer.invoke('open-file-dialog', options);
+	},
+	readFile(filePath: string) {
+		return ipcRenderer.invoke('read-file', filePath);
+	},
+	getStoryFolderPath(story: Story) {
+		return ipcRenderer.invoke('get-story-folder-path', story);
+	},
+	scanStoryParts(storyFolderPath: string) {
+		return ipcRenderer.invoke('scan-story-parts', storyFolderPath);
+	},
+	loadStoryPart(filePath: string) {
+		return ipcRenderer.invoke('load-story-part', filePath);
+	},
 	deleteStory(story: Story) {
 		ipcRenderer.send('delete-story', story);
 	},
@@ -35,7 +53,34 @@ contextBridge.exposeInMainWorld('twineElectron', {
 	saveJson(filename: string, data: any) {
 		ipcRenderer.send('save-json', filename, data);
 	},
-	saveStoryHtml(story: Story, data: string) {
-		ipcRenderer.send('save-story-html', story, data);
+	saveStoryHtml(story: Story, data: string, filename?: string) {
+		ipcRenderer.send('save-story-html', story, data, filename);
+	},
+	onCreatePassageShortcut(callback: () => void) {
+		const listener = () => callback();
+		ipcRenderer.on('accelerator:new-passage', listener);
+		return () => ipcRenderer.removeListener('accelerator:new-passage', listener);
+	},
+	onCreateStoryPartShortcut(callback: () => void) {
+		const listener = () => callback();
+		ipcRenderer.on('accelerator:new-story-part', listener);
+		return () =>
+			ipcRenderer.removeListener('accelerator:new-story-part', listener);
+	},
+	onCopyPassagesShortcut(callback: () => void) {
+		const listener = () => callback();
+		ipcRenderer.on('accelerator:copy-passages', listener);
+		return () => ipcRenderer.removeListener('accelerator:copy-passages', listener);
+	},
+	onCutPassagesShortcut(callback: () => void) {
+		const listener = () => callback();
+		ipcRenderer.on('accelerator:cut-passages', listener);
+		return () => ipcRenderer.removeListener('accelerator:cut-passages', listener);
+	},
+	onPastePassagesShortcut(callback: () => void) {
+		const listener = () => callback();
+		ipcRenderer.on('accelerator:paste-passages', listener);
+		return () =>
+			ipcRenderer.removeListener('accelerator:paste-passages', listener);
 	}
 });

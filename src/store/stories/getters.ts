@@ -215,3 +215,35 @@ export function storyWithName(stories: Story[], name: string) {
 
 	throw new Error(`There is no story with name "${name}".`);
 }
+
+export function storyWithIfid(stories: Story[], ifid: string) {
+	const result = stories.find(s => s.ifid === ifid);
+
+	if (result) {
+		return result;
+	}
+
+	throw new Error(`There is no story with IFID "${ifid}".`);
+}
+
+export function storyWithIdentifier(stories: Story[], identifier: string) {
+	// First try to find by IFID
+	const byIfid = stories.find(story => story.ifid === identifier);
+	if (byIfid) {
+		return byIfid;
+	}
+
+	// Then try to find by ID (UUID)
+	const byId = stories.find(story => story.id === identifier);
+	if (byId) {
+		return byId;
+	}
+
+	// Finally try to find by name (legacy support)
+	const byName = stories.find(story => story.name === identifier);
+	if (byName) {
+		return byName;
+	}
+
+	throw new Error(`There is no story with identifier "${identifier}".`);
+}

@@ -1,4 +1,4 @@
-import {PrefsAction, PrefsState} from './prefs.types';
+import {CharacterIconSizePref, PrefsAction, PrefsState} from './prefs.types';
 import {Color} from '../../util/color';
 
 export function setPref(
@@ -10,6 +10,7 @@ export function setPref(
 		| {name: string; version: string}
 		| {name: string; version: string}[]
 		| Record<string, Color>
+		| CharacterIconSizePref
 ): PrefsAction {
 	return {type: 'update', name, value};
 }

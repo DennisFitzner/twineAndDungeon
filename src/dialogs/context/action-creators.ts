@@ -9,7 +9,8 @@ import {PassageEditStack} from '../passage-edit';
 export function addPassageEditors(
 	storyId: string,
 	passageIds: string[],
-	editorLimit = 6
+	editorLimit = 6,
+	autoRename = false
 ): Thunk<DialogsState, DialogsAction> {
 	return (dispatch, state) => {
 		const currentState = state();
@@ -38,7 +39,8 @@ export function addPassageEditors(
 				index: passageEditStackIndex,
 				props: {
 					...currentState[passageEditStackIndex].props,
-					passageIds: updatedPassageIds
+					passageIds: updatedPassageIds,
+					autoRename
 				}
 			});
 		} else {
@@ -54,7 +56,8 @@ export function addPassageEditors(
 				component: PassageEditStack,
 				props: {
 					storyId,
-					passageIds: clampedPassageIds
+					passageIds: clampedPassageIds,
+					autoRename
 				}
 			});
 		}

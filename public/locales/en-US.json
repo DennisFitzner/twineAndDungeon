@@ -122,6 +122,13 @@
 			"passageCount": "1 passage",
 			"passageCount_plural": "{{count}} passages"
 		},
+		"folderCard": {
+			"lastUpdated": "Last edited on {{date}}",
+			"storyCount": "1 story",
+			"storyCount_plural": "{{count}} stories",
+			"passageCount": "1 passage",
+			"passageCount_plural": "{{count}} passages"
+		},
 		"storyFormatItem": {
 			"author": "by {{author}}",
 			"builtIn": "Built In",
@@ -171,6 +178,12 @@
 		"appPrefs": {
 			"codeEditorFont": "Code Editor Font",
 			"codeEditorFontScale": "Code Editor Font Size",
+			"characterIconSize": "Character Icon Size",
+			"characterIconSizeUnit": "Character Icon Size Unit",
+			"characterIconSizeUnits": {
+				"px": "Pixels",
+				"percent": "Percent"
+			},
 			"dialogWidth": "Dialog Width",
 			"dialogWidths": {
 				"default": "Default",
@@ -190,7 +203,10 @@
 			"useEnhancedEditors": "Use Enhanced Editors"
 		},
 		"passageEdit": {
+			"characters": "Characters",
 			"editorCrashed": "Something went wrong with this editor. Try closing it and editing this passage again.",
+			"multipleCharactersSelected": "{{count}} characters selected",
+			"noCharactersSelected": "No characters selected",
 			"passageTextEditorLabel": "Passage Text",
 			"passageTextPlaceholder": "Enter the body text of your passage here. To link to another passage, put two square brackets around its name, [[like this]].",
 			"setAsStart": "Start Story Here",
@@ -441,5 +457,22 @@
 		"removeTag": "Remove Tag",
 		"renameTag": "Rename Tag",
 		"replaceAllText": "Replace All"
+	},
+	"storyPartTabs": {
+		"createNewPart": "Create New Part",
+		"createPartPrompt": "What should the new story part be named?",
+		"emptyName": "Story part name cannot be empty",
+		"nameConflict": "A story part with this name already exists"
+	},
+	"storyActions": {
+		"loadStoryParts": "Load Story Parts"
+	},
+	"storyPartsBrowser": {
+		"title": "Load Story Parts",
+		"selectAll": "Select All",
+		"selectNone": "Select None",
+		"noPartsFound": "No HTML files found in this story folder.",
+		"selectedCount": "{{count}} part(s) selected",
+		"loadSelected": "Load Selected"
 	}
 }

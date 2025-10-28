@@ -55,7 +55,7 @@ export function updatePassage(
 			const updatedStory = storyWithId(getState(), story.id);
 
 			dispatch(
-				createNewlyLinkedPassages(updatedStory, passage, props.text, oldText)
+				createNewlyLinkedPassages(updatedStory, passage, props.text, oldText, getState())
 			);
 		}
 

@@ -6,6 +6,6 @@
 		"target": "es6"
 	},
 	"extends": "./tsconfig.json",
-	"exclude": ["**/*.test.*"],
+	"exclude": ["**/*.test.*", "src/util/i18n.ts"],
 	"include": ["src/electron/**/*", "src/externals.d.ts"]
 }

@@ -1,6 +1,7 @@
 export * from './create-newly-linked-passages';
 export * from './create-story';
 export * from './create-untitled-passage';
+export * from './create-untitled-passage-with-edit';
 export * from './delete-passage';
 export * from './delete-story';
 export * from './duplicate-story';
@@ -8,6 +9,7 @@ export * from './find-replace';
 export * from './highlight-passages';
 export * from './import-stories';
 export * from './move-passages';
+export * from './resize-passage';
 export * from './rename-passage-tag';
 export * from './rename-story-tag';
 export * from './select-passage';

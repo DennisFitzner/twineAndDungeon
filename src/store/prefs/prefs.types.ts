@@ -1,6 +1,11 @@
 import {Color} from '../../util/color';
 import {StoryFormat} from '../story-formats';
 
+export type CharacterIconSizePref = {
+	amount: number;
+	unit: 'px' | '%';
+};
+
 export type PrefsAction =
 	| {type: 'init'; state: Partial<PrefsState>}
 	| {
@@ -13,7 +18,8 @@ export type PrefsAction =
 				| string[]
 				| {name: string; version: string}
 				| {name: string; version: string}[]
-				| Record<string, Color>;
+				| Record<string, Color>
+				| CharacterIconSizePref;
 	  }
 	| {type: 'repair'; allFormats: StoryFormat[]};
 
@@ -41,6 +47,10 @@ export interface PrefsState {
 		name: string;
 		version: string;
 	}[];
+	/**
+	 * Size of character icons shown on passage cards.
+	 */
+	characterIconSize: CharacterIconSizePref;
 	/**
 	 * Has the donation prompt been shown?
 	 */

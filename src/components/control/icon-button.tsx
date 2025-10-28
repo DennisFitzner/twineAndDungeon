@@ -49,9 +49,22 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
 			{'icon-only': iconOnly}
 		);
 		const [button, setButton] = React.useState<HTMLButtonElement | null>(null);
+		const isMountedRef = React.useRef(true);
+
 		React.useImperativeHandle(ref, () => button as HTMLButtonElement);
+
+		// Cleanup function to prevent memory leaks
+		React.useEffect(() => {
+			return () => {
+				isMountedRef.current = false;
+			};
+		}, []);
+
 		const handleOnClick = (e: React.MouseEvent) => {
-			onClick && onClick(e);
+			// Only call onClick if component is still mounted
+			if (isMountedRef.current && onClick) {
+				onClick(e);
+			}
 
 			if (preventDefault) {
 				e.preventDefault();

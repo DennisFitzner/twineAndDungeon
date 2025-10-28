@@ -1,5 +1,11 @@
 import {initMenuBar} from '../menu-bar';
-import {BrowserWindow, Menu, MenuItemConstructorOptions, shell} from 'electron';
+import {
+	BrowserWindow,
+	Menu,
+	MenuItem,
+	MenuItemConstructorOptions,
+	shell
+} from 'electron';
 import {
 	chooseStoryDirectoryPath,
 	revealStoryDirectory
@@ -21,12 +27,39 @@ function hasItemWithRole(menu: MenuItemConstructorOptions, roleName: string) {
 	);
 }
 
+function expectSubmenu(
+	menu: MenuItemConstructorOptions | undefined
+): MenuItemConstructorOptions[] {
+	expect(menu).toBeDefined();
+	expect(menu?.submenu).toBeDefined();
+	return menu!.submenu as MenuItemConstructorOptions[];
+}
+
+function findMenuItem(
+	submenu: MenuItemConstructorOptions[],
+	label: string
+): MenuItemConstructorOptions {
+	const item = submenu.find(menuItem => menuItem.label === label);
+	expect(item).toBeDefined();
+	return item as MenuItemConstructorOptions;
+}
+
+function invokeClick(item: MenuItemConstructorOptions) {
+	expect(item.click).toBeDefined();
+	(item.click as (menuItem: MenuItem, browserWindow: BrowserWindow, event: any) => void)(
+		{} as MenuItem,
+		{} as BrowserWindow,
+		{}
+	);
+}
+
 describe('initMenuBar', () => {
 	const chooseStoryDirectoryPathMock = chooseStoryDirectoryPath as jest.Mock;
 	const getAppPrefMock = getAppPref as jest.Mock;
 	const toggleHardwareAccelerationMock =
 		toggleHardwareAcceleration as jest.Mock;
 	let openDevToolsMock: jest.Mock;
+	let sendAcceleratorMock: jest.Mock;
 	const openExternalMock = shell.openExternal as jest.Mock;
 	const revealStoryDirectoryMock = revealStoryDirectory as jest.Mock;
 	let setApplicationMenuSpy: jest.SpyInstance;
@@ -41,18 +74,21 @@ describe('initMenuBar', () => {
 		});
 		setApplicationMenuSpy = jest.spyOn(Menu, 'setApplicationMenu');
 		openDevToolsMock = jest.fn();
+		sendAcceleratorMock = jest.fn();
 		(BrowserWindow.getFocusedWindow as jest.Mock).mockReturnValue({
-			webContents: {openDevTools: openDevToolsMock}
+			webContents: {openDevTools: openDevToolsMock, send: sendAcceleratorMock}
 		});
 	});
 
 	describe('on macOS', () => {
 		let oldPlatform: NodeJS.Platform;
+		let menuTemplate: MenuItemConstructorOptions[];
 
 		beforeEach(() => {
 			oldPlatform = process.platform;
 			Object.defineProperty(process, 'platform', {value: 'darwin'});
 			initMenuBar();
+			menuTemplate = setApplicationMenuSpy.mock.calls[0][0];
 		});
 
 		afterAll(() => {
@@ -60,7 +96,7 @@ describe('initMenuBar', () => {
 		});
 
 		it('creates an application menu with standard menu items', () => {
-			const menu1 = setApplicationMenuSpy.mock.calls[0][0][0];
+			const menu1 = menuTemplate[0];
 
 			expect(menu1.label).toBe('mock-electron-app-name');
 			expect(hasItemWithRole(menu1, 'about')).toBe(true);
@@ -72,117 +108,195 @@ describe('initMenuBar', () => {
 		});
 
 		it('creates an Edit menu with standard menu items', () => {
-			const menu2 = setApplicationMenuSpy.mock.calls[0][0][1];
+			const menu = menuTemplate.find(
+				item => item.label === 'electron.menuBar.edit'
+			);
 
-			expect(menu2.label).toBe('electron.menuBar.edit');
-			expect(hasItemWithRole(menu2, 'undo')).toBe(true);
-			expect(hasItemWithRole(menu2, 'redo')).toBe(true);
-			expect(hasItemWithRole(menu2, 'cut')).toBe(true);
-			expect(hasItemWithRole(menu2, 'copy')).toBe(true);
-			expect(hasItemWithRole(menu2, 'paste')).toBe(true);
-			expect(hasItemWithRole(menu2, 'delete')).toBe(true);
-			expect(hasItemWithRole(menu2, 'selectAll')).toBe(true);
+			expect(menu?.label).toBe('electron.menuBar.edit');
+			expect(menu).not.toBeUndefined();
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'undo')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'redo')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'cut')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'copy')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'paste')).toBe(
+				true
+			);
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'delete')
+			).toBe(true);
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'selectAll')
+			).toBe(true);
 		});
 
 		it('creates a View menu with standard menu items', () => {
-			const menu3 = setApplicationMenuSpy.mock.calls[0][0][2];
+			const menu = menuTemplate.find(
+				item => item.label === 'electron.menuBar.view'
+			);
 
-			expect(menu3.label).toBe('electron.menuBar.view');
-			expect(hasItemWithRole(menu3, 'resetZoom')).toBe(true);
-			expect(hasItemWithRole(menu3, 'zoomIn')).toBe(true);
-			expect(hasItemWithRole(menu3, 'zoomOut')).toBe(true);
-			expect(hasItemWithRole(menu3, 'togglefullscreen')).toBe(true);
+			expect(menu?.label).toBe('electron.menuBar.view');
+			expect(menu).not.toBeUndefined();
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'resetZoom')
+			).toBe(true);
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'zoomIn')
+			).toBe(true);
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'zoomOut')
+			).toBe(true);
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'togglefullscreen')
+			).toBe(true);
+		});
+
+		it('creates a Story menu with shortcuts for passages and story parts', () => {
+			const menu = menuTemplate.find(item => item.label === 'common.story');
+
+			expect(menu?.label).toBe('common.story');
+			const submenu = expectSubmenu(menu);
+			const newPassage = findMenuItem(submenu, 'undoChange.newPassage');
+			const newStoryPart = findMenuItem(
+				submenu,
+				'storyPartTabs.createNewPart'
+			);
+
+			expect(newPassage?.accelerator).toBe('CmdOrCtrl+N');
+			invokeClick(newPassage);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith('accelerator:new-passage');
+
+			expect(newStoryPart?.accelerator).toBe('CmdOrCtrl+P');
+			invokeClick(newStoryPart);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:new-story-part'
+			);
+
+			const copyPassages = findMenuItem(submenu, 'common.copy');
+			expect(copyPassages?.accelerator).toBe('CmdOrCtrl+C');
+			invokeClick(copyPassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:copy-passages'
+			);
+
+			const cutPassages = findMenuItem(submenu, 'common.cut');
+			expect(cutPassages?.accelerator).toBe('CmdOrCtrl+X');
+			invokeClick(cutPassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:cut-passages'
+			);
+
+			const pastePassages = findMenuItem(submenu, 'common.paste');
+			expect(pastePassages?.accelerator).toBe('CmdOrCtrl+V');
+			invokeClick(pastePassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:paste-passages'
+			);
 		});
 
 		it('adds a Set Story Library Folder menu item to the application menu', () => {
-			const item = setApplicationMenuSpy.mock.calls[0][0][0].submenu.find(
-				(item: any) => item.label === 'electron.menuBar.setStoryLibraryFolder'
+			const submenu = expectSubmenu(menuTemplate[0]);
+			const item = findMenuItem(
+				submenu,
+				'electron.menuBar.setStoryLibraryFolder'
 			);
-
-			expect(item).not.toBeUndefined();
-			item.click();
+			invokeClick(item);
 			expect(chooseStoryDirectoryPathMock).toBeCalledTimes(1);
 		});
 
 		it('adds a Show Story Library menu item to the View menu', () => {
-			const item = setApplicationMenuSpy.mock.calls[0][0][2].submenu.find(
-				(item: any) => item.label === 'electron.menuBar.showStoryLibrary'
+			const viewMenu = menuTemplate.find(
+				item => item.label === 'electron.menuBar.view'
 			);
-
-			expect(item).not.toBeUndefined();
-			item.click();
+			const item = findMenuItem(
+				expectSubmenu(viewMenu),
+				'electron.menuBar.showStoryLibrary'
+			);
+			invokeClick(item);
 			expect(revealStoryDirectoryMock).toBeCalledTimes(1);
 		});
 
 		it('creates a Window menu with standard menu items', () => {
-			const menu4 = setApplicationMenuSpy.mock.calls[0][0][3];
+			const menu = menuTemplate.find(item => item.role === 'window');
 
-			expect(menu4.role).toBe('window');
-			expect(hasItemWithRole(menu4, 'minimize')).toBe(true);
-			expect(hasItemWithRole(menu4, 'close')).toBe(true);
-			expect(hasItemWithRole(menu4, 'zoom')).toBe(true);
-			expect(hasItemWithRole(menu4, 'front')).toBe(true);
+			expect(menu?.role).toBe('window');
+			expect(menu).not.toBeUndefined();
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'minimize')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'close')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'zoom')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'front')).toBe(
+				true
+			);
 		});
 
 		describe('creates a Help menu', () => {
 			it('has a Twine Help menu item', () => {
-				const menu5 = setApplicationMenuSpy.mock.calls[0][0][4];
+				const menu = menuTemplate.find(item => item.role === 'help');
 
-				expect(menu5.role).toBe('help');
+				expect(menu?.role).toBe('help');
 
-				const item = menu5.submenu.find(
-					(item: any) => item.label === 'electron.menuBar.twineHelp'
+				const item = findMenuItem(
+					expectSubmenu(menu),
+					'electron.menuBar.twineHelp'
 				);
-
-				expect(item).not.toBeUndefined();
-				item.click();
+				invokeClick(item);
 				expect(openExternalMock.mock.calls).toEqual([
 					['https://twinery.org/2guide']
 				]);
 			});
 
 			it('has a Show Debug Console menu item', () => {
-				const menu5 = setApplicationMenuSpy.mock.calls[0][0][4];
-				const item = menu5.submenu
-					.find(
-						(item: any) => item.label === 'electron.menuBar.troubleshooting'
-					)
-					.submenu.find(
-						(item: any) => item.label === 'electron.menuBar.showDevTools'
-					);
-
-				expect(item).not.toBeUndefined();
-				item.click();
+				const menu = menuTemplate.find(item => item.role === 'help');
+				const troubleshootingMenu = findMenuItem(
+					expectSubmenu(menu),
+					'electron.menuBar.troubleshooting'
+				);
+				const item = findMenuItem(
+					expectSubmenu(troubleshootingMenu),
+					'electron.menuBar.showDevTools'
+				);
+				invokeClick(item);
 				expect(openDevToolsMock).toBeCalled();
 			});
 
 			describe('its Disable Hardware Acceleration menu item', () => {
 				it('calls toggleHardwareAcceleration when clicked', () => {
-					const menu5 = setApplicationMenuSpy.mock.calls[0][0][4];
-					const item = menu5.submenu
-						.find(
-							(item: any) => item.label === 'electron.menuBar.troubleshooting'
-						)
-						.submenu.find(
-							(item: any) =>
-								item.label === 'electron.menuBar.disableHardwareAcceleration'
-						);
-
-					expect(item).not.toBeUndefined();
-					item.click();
+					const menu = menuTemplate.find(item => item.role === 'help');
+					const troubleshootingMenu = findMenuItem(
+						expectSubmenu(menu),
+						'electron.menuBar.troubleshooting'
+					);
+					const item = findMenuItem(
+						expectSubmenu(troubleshootingMenu),
+						'electron.menuBar.disableHardwareAcceleration'
+					);
+					invokeClick(item);
 					expect(toggleHardwareAccelerationMock).toBeCalledTimes(1);
 				});
 
 				it('is unchecked if the pref is falsy', () => {
-					const menu5 = setApplicationMenuSpy.mock.calls[0][0][4];
-					const item = menu5.submenu
-						.find(
-							(item: any) => item.label === 'electron.menuBar.troubleshooting'
-						)
-						.submenu.find(
-							(item: any) =>
-								item.label === 'electron.menuBar.disableHardwareAcceleration'
-						);
+					const menu = menuTemplate.find(item => item.role === 'help');
+					const troubleshootingMenu = findMenuItem(
+						expectSubmenu(menu),
+						'electron.menuBar.troubleshooting'
+					);
+					const item = findMenuItem(
+						expectSubmenu(troubleshootingMenu),
+						'electron.menuBar.disableHardwareAcceleration'
+					);
 
 					expect(item).not.toBeUndefined();
 					expect(item.checked).toBe(false);
@@ -198,16 +312,17 @@ describe('initMenuBar', () => {
 					});
 					setApplicationMenuSpy.mockClear();
 					initMenuBar();
+					menuTemplate = setApplicationMenuSpy.mock.calls[0][0];
 
-					const menu5 = setApplicationMenuSpy.mock.calls[0][0][4];
-					const item = menu5.submenu
-						.find(
-							(item: any) => item.label === 'electron.menuBar.troubleshooting'
-						)
-						.submenu.find(
-							(item: any) =>
-								item.label === 'electron.menuBar.disableHardwareAcceleration'
-						);
+					const menu = menuTemplate.find(item => item.role === 'help');
+					const troubleshootingMenu = findMenuItem(
+						expectSubmenu(menu),
+						'electron.menuBar.troubleshooting'
+					);
+					const item = findMenuItem(
+						expectSubmenu(troubleshootingMenu),
+						'electron.menuBar.disableHardwareAcceleration'
+					);
 
 					expect(item).not.toBeUndefined();
 					expect(item.checked).toBe(true);
@@ -221,11 +336,13 @@ describe('initMenuBar', () => {
 		['Windows', 'win32']
 	])('on %s', (_, platformValue) => {
 		let oldPlatform: NodeJS.Platform;
+		let menuTemplate: MenuItemConstructorOptions[];
 
 		beforeEach(() => {
 			oldPlatform = process.platform;
 			Object.defineProperty(process, 'platform', {value: platformValue});
 			initMenuBar();
+			menuTemplate = setApplicationMenuSpy.mock.calls[0][0];
 		});
 
 		afterAll(() => {
@@ -233,124 +350,196 @@ describe('initMenuBar', () => {
 		});
 
 		it('creates an application menu with a quit menu item', () => {
-			const menu1 = setApplicationMenuSpy.mock.calls[0][0][0];
+			const menu1 = menuTemplate[0];
 
 			expect(menu1.label).toBe('mock-electron-app-name');
 			expect(hasItemWithRole(menu1, 'quit')).toBe(true);
 		});
 
 		it('creates an Edit menu with standard menu items', () => {
-			const menu2 = setApplicationMenuSpy.mock.calls[0][0][1];
+			const menu = menuTemplate.find(
+				item => item.label === 'electron.menuBar.edit'
+			);
 
-			expect(menu2.label).toBe('electron.menuBar.edit');
-			expect(hasItemWithRole(menu2, 'undo')).toBe(true);
-			expect(hasItemWithRole(menu2, 'redo')).toBe(true);
-			expect(hasItemWithRole(menu2, 'cut')).toBe(true);
-			expect(hasItemWithRole(menu2, 'copy')).toBe(true);
-			expect(hasItemWithRole(menu2, 'paste')).toBe(true);
-			expect(hasItemWithRole(menu2, 'delete')).toBe(true);
-			expect(hasItemWithRole(menu2, 'selectAll')).toBe(true);
+			expect(menu?.label).toBe('electron.menuBar.edit');
+			expect(menu).not.toBeUndefined();
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'undo')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'redo')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'cut')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'copy')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'paste')).toBe(
+				true
+			);
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'delete')
+			).toBe(true);
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'selectAll')
+			).toBe(true);
 		});
 
 		it('creates a View menu with standard menu items', () => {
-			const menu3 = setApplicationMenuSpy.mock.calls[0][0][2];
+			const menu = menuTemplate.find(
+				item => item.label === 'electron.menuBar.view'
+			);
 
-			expect(menu3.label).toBe('electron.menuBar.view');
-			expect(hasItemWithRole(menu3, 'resetZoom')).toBe(true);
-			expect(hasItemWithRole(menu3, 'zoomIn')).toBe(true);
-			expect(hasItemWithRole(menu3, 'zoomOut')).toBe(true);
-			expect(hasItemWithRole(menu3, 'togglefullscreen')).toBe(true);
+			expect(menu?.label).toBe('electron.menuBar.view');
+			expect(menu).not.toBeUndefined();
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'resetZoom')
+			).toBe(true);
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'zoomIn')
+			).toBe(true);
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'zoomOut')
+			).toBe(true);
+			expect(
+				hasItemWithRole(menu as MenuItemConstructorOptions, 'togglefullscreen')
+			).toBe(true);
+		});
+
+		it('creates a Story menu with shortcuts for passages and story parts', () => {
+			const menu = menuTemplate.find(item => item.label === 'common.story');
+
+			expect(menu?.label).toBe('common.story');
+			const submenu = expectSubmenu(menu);
+			const newPassage = findMenuItem(submenu, 'undoChange.newPassage');
+			const newStoryPart = findMenuItem(
+				submenu,
+				'storyPartTabs.createNewPart'
+			);
+
+			expect(newPassage?.accelerator).toBe('CmdOrCtrl+N');
+			invokeClick(newPassage);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith('accelerator:new-passage');
+
+			expect(newStoryPart?.accelerator).toBe('CmdOrCtrl+P');
+			invokeClick(newStoryPart);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:new-story-part'
+			);
+
+			const copyPassages = findMenuItem(submenu, 'common.copy');
+			expect(copyPassages?.accelerator).toBe('CmdOrCtrl+C');
+			invokeClick(copyPassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:copy-passages'
+			);
+
+			const cutPassages = findMenuItem(submenu, 'common.cut');
+			expect(cutPassages?.accelerator).toBe('CmdOrCtrl+X');
+			invokeClick(cutPassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:cut-passages'
+			);
+
+			const pastePassages = findMenuItem(submenu, 'common.paste');
+			expect(pastePassages?.accelerator).toBe('CmdOrCtrl+V');
+			invokeClick(pastePassages);
+			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+				'accelerator:paste-passages'
+			);
 		});
 
 		it('adds a Set Story Library Folder menu item to the application menu', () => {
-			const item = setApplicationMenuSpy.mock.calls[0][0][0].submenu.find(
-				(item: any) => item.label === 'electron.menuBar.setStoryLibraryFolder'
+			const submenu = expectSubmenu(menuTemplate[0]);
+			const item = findMenuItem(
+				submenu,
+				'electron.menuBar.setStoryLibraryFolder'
 			);
-
-			expect(item).not.toBeUndefined();
-			item.click();
+			invokeClick(item);
 			expect(chooseStoryDirectoryPathMock).toBeCalledTimes(1);
 		});
 
 		it('adds a Show Story Library menu item to the View menu', () => {
-			const item = setApplicationMenuSpy.mock.calls[0][0][2].submenu.find(
-				(item: any) => item.label === 'electron.menuBar.showStoryLibrary'
+			const viewMenu = menuTemplate.find(
+				item => item.label === 'electron.menuBar.view'
 			);
-
-			expect(item).not.toBeUndefined();
-			item.click();
+			const item = findMenuItem(
+				expectSubmenu(viewMenu),
+				'electron.menuBar.showStoryLibrary'
+			);
+			invokeClick(item);
 			expect(revealStoryDirectoryMock).toBeCalledTimes(1);
 		});
 
 		it('creates a Window menu with standard menu items', () => {
-			const menu4 = setApplicationMenuSpy.mock.calls[0][0][3];
+			const menu = menuTemplate.find(item => item.role === 'window');
 
-			expect(menu4.role).toBe('window');
-			expect(hasItemWithRole(menu4, 'minimize')).toBe(true);
-			expect(hasItemWithRole(menu4, 'close')).toBe(true);
+			expect(menu?.role).toBe('window');
+			expect(menu).not.toBeUndefined();
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'minimize')).toBe(
+				true
+			);
+			expect(hasItemWithRole(menu as MenuItemConstructorOptions, 'close')).toBe(
+				true
+			);
 		});
 
 		describe('creates a Help menu', () => {
 			it('has a Twine Help menu item', () => {
-				const menu5 = setApplicationMenuSpy.mock.calls[0][0][4];
+				const menu = menuTemplate.find(item => item.role === 'help');
 
-				expect(menu5.role).toBe('help');
+				expect(menu?.role).toBe('help');
 
-				const item = menu5.submenu.find(
-					(item: any) => item.label === 'electron.menuBar.twineHelp'
+				const item = findMenuItem(
+					expectSubmenu(menu),
+					'electron.menuBar.twineHelp'
 				);
-
-				expect(item).not.toBeUndefined();
-				item.click();
+				invokeClick(item);
 				expect(openExternalMock.mock.calls).toEqual([
 					['https://twinery.org/2guide']
 				]);
 			});
 
 			it('has a Show Debug Console menu item', () => {
-				const menu5 = setApplicationMenuSpy.mock.calls[0][0][4];
-				const item = menu5.submenu
-					.find(
-						(item: any) => item.label === 'electron.menuBar.troubleshooting'
-					)
-					.submenu.find(
-						(item: any) => item.label === 'electron.menuBar.showDevTools'
-					);
-
-				expect(item).not.toBeUndefined();
-				item.click();
+				const menu = menuTemplate.find(item => item.role === 'help');
+				const troubleshootingMenu = findMenuItem(
+					expectSubmenu(menu),
+					'electron.menuBar.troubleshooting'
+				);
+				const item = findMenuItem(
+					expectSubmenu(troubleshootingMenu),
+					'electron.menuBar.showDevTools'
+				);
+				invokeClick(item);
 				expect(openDevToolsMock).toBeCalled();
 			});
 
 			describe('its Disable Hardware Acceleration menu item', () => {
 				it('calls toggleHardwareAcceleration when clicked', () => {
-					const menu5 = setApplicationMenuSpy.mock.calls[0][0][4];
-					const item = menu5.submenu
-						.find(
-							(item: any) => item.label === 'electron.menuBar.troubleshooting'
-						)
-						.submenu.find(
-							(item: any) =>
-								item.label === 'electron.menuBar.disableHardwareAcceleration'
-						);
-
-					expect(item).not.toBeUndefined();
-					item.click();
+					const menu = menuTemplate.find(item => item.role === 'help');
+					const troubleshootingMenu = findMenuItem(
+						expectSubmenu(menu),
+						'electron.menuBar.troubleshooting'
+					);
+					const item = findMenuItem(
+						expectSubmenu(troubleshootingMenu),
+						'electron.menuBar.disableHardwareAcceleration'
+					);
+					invokeClick(item);
 					expect(toggleHardwareAccelerationMock).toBeCalledTimes(1);
 				});
 
 				it('is unchecked if the pref is falsy', () => {
-					const menu5 = setApplicationMenuSpy.mock.calls[0][0][4];
-					const item = menu5.submenu
-						.find(
-							(item: any) => item.label === 'electron.menuBar.troubleshooting'
-						)
-						.submenu.find(
-							(item: any) =>
-								item.label === 'electron.menuBar.disableHardwareAcceleration'
-						);
-
-					expect(item).not.toBeUndefined();
+					const menu = menuTemplate.find(item => item.role === 'help');
+					const troubleshootingMenu = findMenuItem(
+						expectSubmenu(menu),
+						'electron.menuBar.troubleshooting'
+					);
+					const item = findMenuItem(
+						expectSubmenu(troubleshootingMenu),
+						'electron.menuBar.disableHardwareAcceleration'
+					);
 					expect(item.checked).toBe(false);
 				});
 
@@ -364,18 +553,17 @@ describe('initMenuBar', () => {
 					});
 					setApplicationMenuSpy.mockClear();
 					initMenuBar();
+					menuTemplate = setApplicationMenuSpy.mock.calls[0][0];
 
-					const menu5 = setApplicationMenuSpy.mock.calls[0][0][4];
-					const item = menu5.submenu
-						.find(
-							(item: any) => item.label === 'electron.menuBar.troubleshooting'
-						)
-						.submenu.find(
-							(item: any) =>
-								item.label === 'electron.menuBar.disableHardwareAcceleration'
-						);
-
-					expect(item).not.toBeUndefined();
+					const menu = menuTemplate.find(item => item.role === 'help');
+					const troubleshootingMenu = findMenuItem(
+						expectSubmenu(menu),
+						'electron.menuBar.troubleshooting'
+					);
+					const item = findMenuItem(
+						expectSubmenu(troubleshootingMenu),
+						'electron.menuBar.disableHardwareAcceleration'
+					);
 					expect(item.checked).toBe(true);
 				});
 			});

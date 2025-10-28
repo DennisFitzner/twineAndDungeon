@@ -19,6 +19,7 @@ export type PromptButtonValidator = (
 
 export interface PromptButtonProps
 	extends Omit<CardButtonProps, 'ariaLabel' | 'onChangeOpen' | 'open'> {
+	autoOpen?: boolean;
 	cancelIcon?: React.ReactNode;
 	cancelLabel?: string;
 	onChange: React.ChangeEventHandler<HTMLInputElement>;
@@ -32,8 +33,17 @@ export interface PromptButtonProps
 	value: string;
 }
 
-export const PromptButton: React.FC<PromptButtonProps> = props => {
+export interface PromptButtonHandle {
+	close: () => void;
+	open: () => void;
+}
+
+export const PromptButton = React.forwardRef<
+	PromptButtonHandle,
+	PromptButtonProps
+>((props, ref) => {
 	const {
+		autoOpen = false,
 		cancelIcon,
 		cancelLabel,
 		onChange,
@@ -48,10 +58,19 @@ export const PromptButton: React.FC<PromptButtonProps> = props => {
 		...other
 	} = props;
 	const mounted = React.useRef(true);
-	const [open, setOpen] = React.useState(false);
+	const [isOpen, setIsOpen] = React.useState(autoOpen);
 	const [validation, setValidation] =
 		React.useState<PromptValidationResponse>();
 	const {t} = useTranslation();
+
+	React.useImperativeHandle(
+		ref,
+		() => ({
+			close: () => setIsOpen(false),
+			open: () => setIsOpen(true)
+		}),
+		[]
+	);
 
 	React.useEffect(() => {
 		async function updateValidation() {
@@ -79,7 +98,7 @@ export const PromptButton: React.FC<PromptButtonProps> = props => {
 
 	function handleCancel(event: React.MouseEvent) {
 		event.preventDefault();
-		setOpen(false);
+		setIsOpen(false);
 	}
 
 	async function handleSubmit(event: React.FormEvent) {
@@ -108,7 +127,7 @@ export const PromptButton: React.FC<PromptButtonProps> = props => {
 
 		if (validation?.valid) {
 			onSubmit(value);
-			setOpen(false);
+			setIsOpen(false);
 		}
 	}
 
@@ -116,8 +135,8 @@ export const PromptButton: React.FC<PromptButtonProps> = props => {
 		<span className="prompt-button">
 			<CardButton
 				ariaLabel={prompt}
-				onChangeOpen={setOpen}
-				open={open}
+				onChangeOpen={setIsOpen}
+				open={isOpen}
 				{...other}
 			>
 				<form onSubmit={handleSubmit}>
@@ -148,4 +167,6 @@ export const PromptButton: React.FC<PromptButtonProps> = props => {
 			</CardButton>
 		</span>
 	);
-};
+});
+
+PromptButton.displayName = 'PromptButton';

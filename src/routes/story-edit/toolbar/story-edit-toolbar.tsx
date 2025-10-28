@@ -1,6 +1,7 @@
 import * as React from 'react';
 import {useTranslation} from 'react-i18next';
 import {RouteToolbar} from '../../../components/route-toolbar';
+import {StoryPartTabs} from '../../../components/story-tabs';
 import {AppActions, BuildActions} from '../../../route-actions';
 import {Story} from '../../../store/stories';
 import {Point} from '../../../util/geometry';
@@ -13,10 +14,26 @@ export interface StoryEditToolbarProps {
 	getCenter: () => Point;
 	onOpenFuzzyFinder: () => void;
 	story: Story;
+	storyParts?: Story[];
+	activePartIfid?: string;
+	onSelectPart?: (partIfid: string) => void;
+	onClosePart?: (partIfid: string) => void;
+	onCreatePart?: (partName: string) => void;
+	onLoadParts?: () => void;
 }
 
 export const StoryEditToolbar: React.FC<StoryEditToolbarProps> = props => {
-	const {getCenter, onOpenFuzzyFinder, story} = props;
+	const {
+		getCenter,
+		onOpenFuzzyFinder,
+		story,
+		storyParts,
+		activePartIfid,
+		onSelectPart,
+		onClosePart,
+		onCreatePart,
+		onLoadParts
+	} = props;
 	const {t} = useTranslation();
 
 	return (
@@ -35,10 +52,23 @@ export const StoryEditToolbar: React.FC<StoryEditToolbarProps> = props => {
 						story={story}
 					/>
 				),
-				[t('common.story')]: <StoryActions story={story} />,
+				[t('common.story')]: (
+					<StoryActions story={story} onLoadParts={onLoadParts} />
+				),
 				[t('common.build')]: <BuildActions story={story} />,
 				[t('common.appName')]: <AppActions />
 			}}
+			additionalRow={
+				storyParts && storyParts.length > 0 ? (
+					<StoryPartTabs
+						storyParts={storyParts}
+						activePartIfid={activePartIfid || story.ifid}
+						onSelectPart={onSelectPart || (() => {})}
+						onClosePart={onClosePart || (() => {})}
+						onCreatePart={onCreatePart || ((_partName: string) => {})} // eslint-disable-line @typescript-eslint/no-unused-vars
+					/>
+				) : undefined
+			}
 		/>
 	);
 };

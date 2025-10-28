@@ -6,15 +6,17 @@ import {DetailsButton} from './details-button';
 import {FindReplaceButton} from './find-replace-button';
 import {JavaScriptButton} from './javascript-button';
 import {PassageTagsButton} from './passage-tags-button';
+import {LoadStoryPartsButton} from './load-story-parts-button';
 import {StylesheetButton} from './stylesheet-button';
 
 export interface StoryActionsProps {
 	story: Story;
+	onLoadParts?: () => void;
 }
 
 export const StoryActions: React.FC<StoryActionsProps> = props => {
 	const {dispatch, stories} = useStoriesContext();
-	const {story} = props;
+	const {story, onLoadParts} = props;
 
 	return (
 		<ButtonBar>
@@ -28,6 +30,9 @@ export const StoryActions: React.FC<StoryActionsProps> = props => {
 			<PassageTagsButton story={story} />
 			<JavaScriptButton story={story} />
 			<StylesheetButton story={story} />
+			{onLoadParts && (
+				<LoadStoryPartsButton story={story} onLoadParts={onLoadParts} />
+			)}
 		</ButtonBar>
 	);
 };
