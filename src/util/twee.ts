@@ -338,8 +338,128 @@ export function unescapeForTweeText(value: string) {
 }
 
 /**
+ * Converts a passage to Twee with story part name prefix.
+ */
+function passageToTweeWithPrefix(
+	passage: Passage,
+	storyPartName: string
+): string {
+	const prefixedName = `${storyPartName}:${passage.name}`;
+	const escapedName = escapeForTweeHeader(prefixedName)
+		.replace(/^\s+/g, match => '\\ '.repeat(match.length))
+		.replace(/\s+$/g, match => '\\ '.repeat(match.length));
+	const tags =
+		passage.tags.length > 0
+			? `[${passage.tags.map(escapeForTweeHeader).join(' ')}]`
+			: undefined;
+	const metadata = JSON.stringify({
+		position: `${passage.left},${passage.top}`,
+		size: `${passage.width},${passage.height}`
+	}).replace(/\s+/g, '');
+
+	// Process the text to update links with story part prefixes
+	const processedText = processLinksWithPrefix(passage.text, storyPartName);
+	const escapedText = escapeForTweeText(processedText);
+
+	return `:: ${escapedName}${
+		tags ? ' ' + tags : ''
+	} ${metadata}\n${escapedText}\n`;
+}
+
+/**
+ * Processes passage text to add story part prefixes to links and remove backlinks/interlinks.
+ * Only processes regular Twine links ([[link]] and [[link|text]]), completely removes backlinks and interlinks.
+ */
+function processLinksWithPrefix(text: string, storyPartName: string): string {
+	// First, remove all backlinks and interlinks completely
+	let processedText = text
+		.replace(/\[\[<-[^\]]+\]\]/g, '') // Remove backlinks [[<-link]]
+		.replace(/\[\[->[^\]]+\]\]/g, ''); // Remove interlinks [[->link]]
+
+	// Then process regular Twine links [[link]] and [[link|text]]
+	const linkPattern = /\[\[([^<>\]]+)(?:\|([^\]]+))?\]\]/g;
+
+	processedText = processedText.replace(
+		linkPattern,
+		(match, link, displayText) => {
+			// Skip if link already has a colon (already prefixed)
+			if (link.includes(':')) {
+				return match;
+			}
+
+			// Add story part prefix to the link
+			const prefixedLink = `${storyPartName}:${link}`;
+			if (displayText) {
+				return `[[${prefixedLink}|${displayText}]]`;
+			} else {
+				return `[[${prefixedLink}]]`;
+			}
+		}
+	);
+
+	return processedText;
+}
+
+/**
+ * Converts a story to Twee with story part name prefixes.
+ */
+function storyToTweeWithPrefix(story: Story, storyPartName: string): string {
+	const storyTitle = `:: StoryTitle\n${escapeForTweeText(story.name)}`;
+	const startPassage = story.passages.find(p => p.id === story.startPassage);
+	const prefixedStartPassage = startPassage
+		? `${storyPartName}:${startPassage.name}`
+		: undefined;
+
+	const storyData = `:: StoryData\n${JSON.stringify(
+		{
+			ifid: story.ifid,
+			format: story.storyFormat,
+			'format-version': story.storyFormatVersion,
+			start: prefixedStartPassage,
+			'tag-colors':
+				Object.keys(story.tagColors).length > 0 ? story.tagColors : undefined,
+			zoom: story.zoom
+		},
+		null,
+		2
+	)}`;
+
+	let result = `${storyTitle}\n\n\n${storyData}\n\n\n${sortBy(story.passages, [
+		'name'
+	])
+		.map(passage => passageToTweeWithPrefix(passage, storyPartName))
+		.join('\n\n')}`;
+
+	// If the story has script or stylesheet, they need to be converted to tagged
+	// passages. These passage names are not part of the Twee spec.
+
+	const passageNames = story.passages.map(
+		({name}) => `${storyPartName}:${name}`
+	);
+
+	if (story.script.trim() !== '') {
+		const scriptPassageName = unusedName('StoryScript', passageNames);
+
+		result += `\n\n:: ${scriptPassageName} [script]\n${escapeForTweeText(
+			story.script
+		)}`;
+	}
+
+	if (story.stylesheet.trim() !== '') {
+		const stylesheetPassageName = unusedName('StoryStylesheet', passageNames);
+
+		result += `\n\n:: ${stylesheetPassageName} [stylesheet]\n${escapeForTweeText(
+			story.stylesheet
+		)}`;
+	}
+
+	return result;
+}
+
+/**
  * Exports multiple story parts as a combined Twee file.
  * Each story part is clearly separated with section headers.
+ * Passage names and links are prefixed with story part names.
  */
 export function exportAllStoryPartsAsTwee(
 	storyParts: Story[],
@@ -357,7 +477,7 @@ export function exportAllStoryPartsAsTwee(
 	const sections = storyParts.map(part => {
 		const partTitle = part.partName || part.name;
 		const sectionHeader = `\n\n:: === ${partTitle} === [section]\nThis section contains the story part: ${partTitle}\n`;
-		const partTwee = storyToTwee(part);
+		const partTwee = storyToTweeWithPrefix(part, partTitle);
 		return sectionHeader + partTwee;
 	});
 
