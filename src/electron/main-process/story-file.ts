@@ -1,5 +1,6 @@
 import {app, dialog, shell} from 'electron';
 import {
+	mkdirp,
 	mkdtemp,
 	move,
 	readdir,
@@ -12,7 +13,22 @@ import {basename, join} from 'path';
 import {i18n} from './locales';
 import {getStoryDirectoryPath} from './story-directory';
 import {Story} from '../../store/stories/stories.types';
-import {storyFileName} from '../shared/story-filename';
+// import {storyFileName} from '../shared/story-filename'; // No longer needed with folder-based storage
+
+/**
+ * Returns the folder path for a story based on its title.
+ */
+function getStoryFolderPath(story: Story) {
+	return join(getStoryDirectoryPath(), story.name);
+}
+
+/**
+ * Returns the HTML file path for a story inside its folder.
+ */
+function getStoryHtmlPath(story: Story) {
+	return join(getStoryFolderPath(story), `${story.name}.html`);
+}
+
 import {
 	stopTrackingFile,
 	fileWasTouched,
@@ -34,20 +50,28 @@ export async function loadStories() {
 	const files = await readdir(storyPath);
 
 	await Promise.all(
-		files
-			.filter(f => /\.html$/i.test(f))
-			.map(async f => {
-				const filePath = join(storyPath, f);
-				const stats = await stat(filePath);
+		files.map(async f => {
+			const folderPath = join(storyPath, f);
 
-				if (!stats.isDirectory()) {
-					result.push({
-						mtime: stats.mtime,
-						htmlSource: await readFile(filePath, 'utf8')
-					});
-					return fileWasTouched(filePath);
+			try {
+				const folderStats = await stat(folderPath);
+				if (folderStats.isDirectory()) {
+					const htmlFilePath = join(folderPath, `${f}.html`);
+					const htmlStats = await stat(htmlFilePath);
+
+					if (!htmlStats.isDirectory()) {
+						result.push({
+							mtime: htmlStats.mtime,
+							htmlSource: await readFile(htmlFilePath, 'utf8')
+						});
+						return fileWasTouched(htmlFilePath);
+					}
 				}
-			})
+			} catch (error) {
+				// Skip folders that don't contain the expected HTML file
+				console.warn(`Story folder ${f} does not contain ${f}.html, skipping`);
+			}
+		})
 	);
 
 	return result;
@@ -61,15 +85,19 @@ export async function saveStoryHtml(story: Story, storyHtml: string) {
 	// We save to a temp file first, then overwrite the existing if that succeeds,
 	// so that if any step fails, the original file is left intact.
 
-	const savedFilePath = join(getStoryDirectoryPath(), storyFileName(story));
+	const storyFolderPath = getStoryFolderPath(story);
+	const savedFilePath = getStoryHtmlPath(story);
 
 	console.log(`Saving ${savedFilePath}`);
 
 	try {
+		// Create the story folder if it doesn't exist
+		await mkdirp(storyFolderPath);
+
 		const tempFileDirectory = await mkdtemp(
 			join(app.getPath('temp'), `twine-${story.id}`)
 		);
-		const tempFilePath = join(tempFileDirectory, storyFileName(story));
+		const tempFilePath = join(tempFileDirectory, `${story.name}.html`);
 
 		if (await wasFileChangedExternally(savedFilePath)) {
 			const {response} = await dialog.showMessageBox({
@@ -109,12 +137,12 @@ export async function saveStoryHtml(story: Story, storyHtml: string) {
  */
 export async function deleteStory(story: Story) {
 	try {
-		const deletedFilePath = join(getStoryDirectoryPath(), storyFileName(story));
+		const deletedFolderPath = getStoryFolderPath(story);
 
-		console.log(`Trashing ${deletedFilePath}`);
-		await shell.trashItem(deletedFilePath);
-		stopTrackingFile(deletedFilePath);
-		console.log(`Successfully trashed ${deletedFilePath}`);
+		console.log(`Trashing ${deletedFolderPath}`);
+		await shell.trashItem(deletedFolderPath);
+		stopTrackingFile(deletedFolderPath);
+		console.log(`Successfully trashed ${deletedFolderPath}`);
 	} catch (e) {
 		console.warn(`Error while deleting story: ${e}`);
 		throw e;
@@ -127,15 +155,16 @@ export async function deleteStory(story: Story) {
  */
 export async function renameStory(oldStory: Story, newStory: Story) {
 	try {
-		const storyPath = getStoryDirectoryPath();
-		const newStoryPath = join(storyPath, storyFileName(newStory));
-		const oldStoryPath = join(storyPath, storyFileName(oldStory));
+		const oldStoryFolderPath = getStoryFolderPath(oldStory);
+		const newStoryFolderPath = getStoryFolderPath(newStory);
 
-		console.log(`Renaming ${oldStoryPath} to ${newStoryPath}`);
-		await rename(oldStoryPath, newStoryPath);
-		stopTrackingFile(oldStoryPath);
-		await fileWasTouched(newStoryPath);
-		console.log(`Successfully renamed ${oldStoryPath} to ${newStoryPath}`);
+		console.log(`Renaming ${oldStoryFolderPath} to ${newStoryFolderPath}`);
+		await rename(oldStoryFolderPath, newStoryFolderPath);
+		stopTrackingFile(oldStoryFolderPath);
+		await fileWasTouched(newStoryFolderPath);
+		console.log(
+			`Successfully renamed ${oldStoryFolderPath} to ${newStoryFolderPath}`
+		);
 	} catch (e) {
 		console.warn(`Error while renaming story: ${e}`);
 		throw e;
