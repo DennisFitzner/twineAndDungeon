@@ -27,6 +27,7 @@ describe('<PassageCard>', () => {
 				onEdit={jest.fn()}
 				onSelect={jest.fn()}
 				passage={fakePassage()}
+				story={{id: 'test-story', characters: []} as any}
 				tagColors={{}}
 				{...props}
 			/>

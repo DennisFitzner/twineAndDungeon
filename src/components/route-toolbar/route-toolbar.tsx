@@ -10,10 +10,16 @@ export interface RouteToolbarProps {
 	helpUrl?: string;
 	pinnedControls?: React.ReactNode;
 	tabs: Record<string, React.ReactNode>;
+	additionalRow?: React.ReactNode;
 }
 
 export const RouteToolbar: React.FC<RouteToolbarProps> = props => {
-	const {helpUrl = 'https://twinery.org/2guide', pinnedControls, tabs} = props;
+	const {
+		helpUrl = 'https://twinery.org/2guide',
+		pinnedControls,
+		tabs,
+		additionalRow
+	} = props;
 	const {t} = useTranslation();
 
 	return (
@@ -42,6 +48,9 @@ export const RouteToolbar: React.FC<RouteToolbarProps> = props => {
 						<TabPanel key={tabName}>{tabContent}</TabPanel>
 					))}
 				</div>
+				{additionalRow && (
+					<div className="route-toolbar-additional-row">{additionalRow}</div>
+				)}
 			</Tabs>
 		</div>
 	);

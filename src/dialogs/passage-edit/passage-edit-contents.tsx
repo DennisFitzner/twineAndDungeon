@@ -11,6 +11,7 @@ import {useUndoableStoriesContext} from '../../store/undoable-stories';
 import {PassageText} from './passage-text';
 import {PassageToolbar} from './passage-toolbar';
 import {StoryFormatToolbar} from './story-format-toolbar';
+import {AutoTriggerRenameButton} from '../../components/passage/auto-trigger-rename-button';
 import './passage-edit-contents.css';
 import {usePrefsContext} from '../../store/prefs';
 
@@ -18,12 +19,13 @@ export interface PassageEditContentsProps {
 	disabled?: boolean;
 	passageId: string;
 	storyId: string;
+	autoRename?: boolean;
 }
 
 export const PassageEditContents: React.FC<
 	PassageEditContentsProps
 > = props => {
-	const {disabled, passageId, storyId} = props;
+	const {disabled, passageId, storyId, autoRename = false} = props;
 	const [storyFormatExtensionsEnabled, setStoryFormatExtensionsEnabled] =
 		React.useState(true);
 	const [editorCrashed, setEditorCrashed] = React.useState(false);
@@ -34,6 +36,16 @@ export const PassageEditContents: React.FC<
 	const {formats} = useStoryFormatsContext();
 	const passage = passageWithId(stories, storyId, passageId);
 	const story = storyWithId(stories, storyId);
+	// Sibling stories in same folder for cross-part hints
+	const siblingStories = React.useMemo(
+		() =>
+			stories.filter(
+				s =>
+					(s.storyFolderName || s.name) ===
+					(story.storyFolderName || story.name)
+			),
+		[stories, story.storyFolderName, story.name]
+	);
 	const storyFormat = formatWithNameAndVersion(
 		formats,
 		story.storyFormat,
@@ -60,6 +72,13 @@ export const PassageEditContents: React.FC<
 	const handlePassageTextChange = React.useCallback(
 		(text: string) => {
 			dispatch(updatePassage(story, passage, {text}));
+		},
+		[dispatch, passage, story]
+	);
+
+	const handleRename = React.useCallback(
+		(name: string) => {
+			dispatch(updatePassage(story, passage, {name}, {dontUpdateOthers: true}));
 		},
 		[dispatch, passage, story]
 	);
@@ -98,6 +117,14 @@ export const PassageEditContents: React.FC<
 				story={story}
 				useCodeMirror={prefs.useCodeMirror}
 			/>
+			{autoRename && (
+				<AutoTriggerRenameButton
+					onRename={handleRename}
+					passage={passage}
+					story={story}
+					autoTrigger={true}
+				/>
+			)}
 			{prefs.useCodeMirror && storyFormatExtensionsEnabled && (
 				<StoryFormatToolbar
 					disabled={disabled}
@@ -113,6 +140,7 @@ export const PassageEditContents: React.FC<
 					onEditorChange={setCmEditor}
 					passage={passage}
 					story={story}
+					siblingStories={siblingStories}
 					storyFormat={storyFormat}
 					storyFormatExtensionsDisabled={!storyFormatExtensionsEnabled}
 				/>

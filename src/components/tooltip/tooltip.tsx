@@ -23,7 +23,7 @@ export const Tooltip: React.FC<TooltipProps> = props => {
 	const [tooltipEl, setTooltipEl] = React.useState<HTMLDivElement | null>(null);
 	const [arrowEl, setArrowEl] = React.useState<HTMLDivElement | null>(null);
 	const [visible, setVisible] = React.useState(false);
-	const [appearTimeout, setAppearTimeout] = React.useState<number>();
+	const appearTimeoutRef = React.useRef<number | null>(null);
 	const {styles, attributes} = usePopper(anchor, tooltipEl, {
 		modifiers: [{name: 'arrow', options: {element: arrowEl}}, {name: 'flip'}],
 		placement: position,
@@ -31,25 +31,41 @@ export const Tooltip: React.FC<TooltipProps> = props => {
 	});
 
 	React.useEffect(() => {
-		const handleOnEnter = () =>
-			setAppearTimeout(window.setTimeout(() => setVisible(true), 500));
-		const handleOnLeave = () => {
-			if (appearTimeout) {
-				window.clearTimeout(appearTimeout);
+		const handleOnEnter = () => {
+			// start delayed show; clear any previous
+			if (appearTimeoutRef.current != null) {
+				window.clearTimeout(appearTimeoutRef.current);
 			}
-
+			appearTimeoutRef.current = window.setTimeout(() => {
+				setVisible(true);
+				appearTimeoutRef.current = null;
+			}, 500);
+		};
+		const handleOnLeave = () => {
+			// cancel pending show and hide immediately
+			if (appearTimeoutRef.current != null) {
+				window.clearTimeout(appearTimeoutRef.current);
+				appearTimeoutRef.current = null;
+			}
 			setVisible(false);
 		};
 
 		if (anchor) {
 			anchor.addEventListener('pointerenter', handleOnEnter);
 			anchor.addEventListener('pointerleave', handleOnLeave);
-			return () => {
+		}
+
+		return () => {
+			if (anchor) {
 				anchor.removeEventListener('pointerenter', handleOnEnter);
 				anchor.removeEventListener('pointerleave', handleOnLeave);
-			};
-		}
-	}, [anchor, appearTimeout]);
+			}
+			if (appearTimeoutRef.current != null) {
+				window.clearTimeout(appearTimeoutRef.current);
+				appearTimeoutRef.current = null;
+			}
+		};
+	}, [anchor]);
 
 	return (
 		<CSSTransition

@@ -14,13 +14,16 @@ const DisabledRenamePassageButton: React.FC = () => {
 };
 
 export interface EnabledRenamePassageButtonProps {
+	autoOpen?: boolean;
 	onRename: (value: string) => void;
 	passage: Passage;
 	story: Story;
 }
 
-export const EnabledRenamePassageButton: React.FC<EnabledRenamePassageButtonProps> = props => {
-	const {onRename, passage, story} = props;
+export const EnabledRenamePassageButton: React.FC<
+	EnabledRenamePassageButtonProps
+> = props => {
+	const {onRename, passage, story, autoOpen} = props;
 	const [newName, setNewName] = React.useState(passage.name);
 	const {t} = useTranslation();
 
@@ -44,6 +47,7 @@ export const EnabledRenamePassageButton: React.FC<EnabledRenamePassageButtonProp
 
 	return (
 		<PromptButton
+			autoOpen={autoOpen}
 			icon={<IconWriting />}
 			label={t('common.rename')}
 			onChange={event => setNewName(event.target.value)}
@@ -57,6 +61,7 @@ export const EnabledRenamePassageButton: React.FC<EnabledRenamePassageButtonProp
 
 export interface RenamePassageButtonProps
 	extends Omit<EnabledRenamePassageButtonProps, 'passage'> {
+	autoOpen?: boolean;
 	disabled?: boolean;
 	passage?: Passage;
 }

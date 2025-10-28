@@ -42,6 +42,7 @@ describe('<MarqueeablePassageMap>', () => {
 				onSelectRect={jest.fn()}
 				passages={story.passages}
 				startPassageId={story.passages[0].id}
+				story={story}
 				tagColors={{}}
 				visibleZoom={story.zoom}
 				zoom={story.zoom}

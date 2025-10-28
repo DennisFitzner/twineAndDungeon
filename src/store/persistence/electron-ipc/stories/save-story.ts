@@ -25,32 +25,37 @@ export async function saveStory(story: Story, formats: StoryFormatsState) {
 			story.storyFormatVersion
 		);
 
+		let publishedHtml: string;
 		if (format.loadState === 'loaded') {
-			twineElectron.saveStoryHtml(
+			publishedHtml = publishStoryWithFormat(
 				story,
-				publishStoryWithFormat(story, format.properties.source, getAppInfo(), {
+				format.properties.source,
+				getAppInfo(),
+				{
 					startOptional: true
-				})
+				}
 			);
 		} else {
 			const {source} = await fetchStoryFormatProperties(format.url);
-
-			twineElectron.saveStoryHtml(
-				story,
-				publishStoryWithFormat(story, source, getAppInfo(), {
-					startOptional: true
-				})
-			);
+			publishedHtml = publishStoryWithFormat(story, source, getAppInfo(), {
+				startOptional: true
+			});
 		}
+
+		// Use part filename if this is a story part
+		const filename = story.partName ? `${story.partName}.html` : undefined;
+		twineElectron.saveStoryHtml(story, publishedHtml, filename);
 	} catch (error) {
 		console.warn(
 			`Could not save full story (${
 				(error as Error).message
 			}). Trying to save story data only.`
 		);
+		const filename = story.partName ? `${story.partName}.html` : undefined;
 		twineElectron.saveStoryHtml(
 			story,
-			publishStory(story, getAppInfo(), {startOptional: true})
+			publishStory(story, getAppInfo(), {startOptional: true}),
+			filename
 		);
 	}
 }
