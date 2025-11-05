@@ -71,7 +71,10 @@ function isValidUrl(value: string) {
         }
 }
 
-function normalizeCharacterImage(character: Character, folderPath: string): Character {
+async function normalizeCharacterImage(
+        character: Character,
+        folderPath: string
+): Promise<Character> {
         if (!character.image || isValidUrl(character.image)) {
                 return character;
         }
@@ -80,9 +83,22 @@ function normalizeCharacterImage(character: Character, folderPath: string): Char
                 ? character.image
                 : join(folderPath, character.image);
 
+        const fileUrl = pathToFileURL(resolvedPath);
+
+        try {
+                const {mtimeMs} = await stat(resolvedPath);
+                fileUrl.searchParams.set('mtime', Math.round(mtimeMs).toString());
+        } catch (error) {
+                console.warn(
+                        `Failed to read metadata for character image ${resolvedPath}:`,
+                        error
+                );
+                fileUrl.searchParams.set('mtime', Date.now().toString());
+        }
+
         return {
                 ...character,
-                image: pathToFileURL(resolvedPath).toString()
+                image: fileUrl.toString()
         };
 }
 
@@ -108,7 +124,10 @@ export async function loadCharactersFromFolder(
         try {
                 const charactersContent = await readFile(charactersFilePath, 'utf8');
                 const parsed = JSON.parse(charactersContent) as Character[];
-                return parsed.map(character => normalizeCharacterImage(character, folderPath));
+                const normalized = await Promise.all(
+                        parsed.map(character => normalizeCharacterImage(character, folderPath))
+                );
+                return normalized;
         } catch (error) {
                 console.error(`Failed to load characters.json from ${charactersFilePath}:`, error);
                 return undefined;
