@@ -139,8 +139,8 @@ export const CreatePassageButton: React.FC<
                                 event.preventDefault();
                         }
                 },
-                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false},
-                [handleCharacterShortcut]
+                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
+                [handleCharacterShortcut, isElectron]
         );
         useHotkeys(
                 'meta+2,ctrl+2',
@@ -149,8 +149,8 @@ export const CreatePassageButton: React.FC<
                                 event.preventDefault();
                         }
                 },
-                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false},
-                [handleCharacterShortcut]
+                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
+                [handleCharacterShortcut, isElectron]
         );
         useHotkeys(
                 'meta+3,ctrl+3',
@@ -159,8 +159,8 @@ export const CreatePassageButton: React.FC<
                                 event.preventDefault();
                         }
                 },
-                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false},
-                [handleCharacterShortcut]
+                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
+                [handleCharacterShortcut, isElectron]
         );
         useHotkeys(
                 'meta+4,ctrl+4',
@@ -169,8 +169,8 @@ export const CreatePassageButton: React.FC<
                                 event.preventDefault();
                         }
                 },
-                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false},
-                [handleCharacterShortcut]
+                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
+                [handleCharacterShortcut, isElectron]
         );
         useHotkeys(
                 'meta+5,ctrl+5',
@@ -179,8 +179,8 @@ export const CreatePassageButton: React.FC<
                                 event.preventDefault();
                         }
                 },
-                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false},
-                [handleCharacterShortcut]
+                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
+                [handleCharacterShortcut, isElectron]
         );
         useHotkeys(
                 'meta+6,ctrl+6',
@@ -189,8 +189,8 @@ export const CreatePassageButton: React.FC<
                                 event.preventDefault();
                         }
                 },
-                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false},
-                [handleCharacterShortcut]
+                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
+                [handleCharacterShortcut, isElectron]
         );
         useHotkeys(
                 'meta+7,ctrl+7',
@@ -199,8 +199,8 @@ export const CreatePassageButton: React.FC<
                                 event.preventDefault();
                         }
                 },
-                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false},
-                [handleCharacterShortcut]
+                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
+                [handleCharacterShortcut, isElectron]
         );
         useHotkeys(
                 'meta+8,ctrl+8',
@@ -209,8 +209,8 @@ export const CreatePassageButton: React.FC<
                                 event.preventDefault();
                         }
                 },
-                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false},
-                [handleCharacterShortcut]
+                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
+                [handleCharacterShortcut, isElectron]
         );
         useHotkeys(
                 'meta+9,ctrl+9',
@@ -219,19 +219,24 @@ export const CreatePassageButton: React.FC<
                                 event.preventDefault();
                         }
                 },
-                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false},
-                [handleCharacterShortcut]
+                {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
+                [handleCharacterShortcut, isElectron]
         );
 
-	React.useEffect(() => {
-		if (!isElectron || !twineElectron?.onCreatePassageShortcut) {
-			return;
-		}
+        React.useEffect(() => {
+                if (!isElectron || !twineElectron?.onCreatePassageShortcut) {
+                        return;
+                }
 
-		return twineElectron.onCreatePassageShortcut(() => {
+                return twineElectron.onCreatePassageShortcut(characterIndex => {
+                        if (typeof characterIndex === 'number') {
+                                handleCharacterShortcut(characterIndex);
+                                return;
+                        }
+
                         createPassage();
                 });
-        }, [createPassage, isElectron, twineElectron]);
+        }, [createPassage, handleCharacterShortcut, isElectron, twineElectron]);
 
         return (
                 <IconButton

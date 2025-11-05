@@ -15,12 +15,17 @@ import {toggleHardwareAcceleration} from './hardware-acceleration';
 import {getAppPref} from './app-prefs';
 
 export function initMenuBar() {
-	function sendAccelerator(channel: string) {
-		const focusedWindow = BrowserWindow.getFocusedWindow();
-		focusedWindow?.webContents.send(channel);
-	}
+        function sendAccelerator(channel: string, payload?: unknown) {
+                const focusedWindow = BrowserWindow.getFocusedWindow();
+                if (payload === undefined) {
+                        focusedWindow?.webContents.send(channel);
+                        return;
+                }
 
-	const template: MenuItemConstructorOptions[] = [
+                focusedWindow?.webContents.send(channel, payload);
+        }
+
+        const template: MenuItemConstructorOptions[] = [
 		{
 			label: app.getName(),
 			submenu: [
@@ -50,37 +55,48 @@ export function initMenuBar() {
 				{role: 'selectAll'}
 			]
 		},
-		{
-			label: i18n.t('common.story'),
-			submenu: [
-				{
-					accelerator: 'CmdOrCtrl+N',
-					click: () => sendAccelerator('accelerator:new-passage'),
-					label: i18n.t('undoChange.newPassage')
-				},
-				{
-					accelerator: 'CmdOrCtrl+P',
-					click: () => sendAccelerator('accelerator:new-story-part'),
-					label: i18n.t('storyPartTabs.createNewPart')
-				},
-				{type: 'separator'},
-				{
-					accelerator: 'CmdOrCtrl+C',
-					click: () => sendAccelerator('accelerator:copy-passages'),
-					label: i18n.t('common.copy', {defaultValue: 'Copy'})
-				},
-				{
-					accelerator: 'CmdOrCtrl+X',
-					click: () => sendAccelerator('accelerator:cut-passages'),
-					label: i18n.t('common.cut', {defaultValue: 'Cut'})
-				},
-				{
-					accelerator: 'CmdOrCtrl+V',
-					click: () => sendAccelerator('accelerator:paste-passages'),
-					label: i18n.t('common.paste', {defaultValue: 'Paste'})
-				}
-			]
-		},
+                {
+                        label: i18n.t('common.story'),
+                        submenu: [
+                                {
+                                        accelerator: 'CmdOrCtrl+N',
+                                        click: () => sendAccelerator('accelerator:new-passage'),
+                                        label: i18n.t('undoChange.newPassage')
+                                },
+                                ...Array.from({length: 9}, (_, index): MenuItemConstructorOptions => ({
+                                        accelerator: `CmdOrCtrl+${index + 1}`,
+                                        click: () =>
+                                                sendAccelerator('accelerator:new-passage', {
+                                                        characterIndex: index
+                                                }),
+                                        label: i18n.t(
+                                                'electron.menuBar.newPassageForCharacter',
+                                                {number: index + 1}
+                                        )
+                                })),
+                                {
+                                        accelerator: 'CmdOrCtrl+P',
+                                        click: () => sendAccelerator('accelerator:new-story-part'),
+                                        label: i18n.t('storyPartTabs.createNewPart')
+                                },
+                                {type: 'separator'},
+                                {
+                                        accelerator: 'CmdOrCtrl+C',
+                                        click: () => sendAccelerator('accelerator:copy-passages'),
+                                        label: i18n.t('common.copy', {defaultValue: 'Copy'})
+                                },
+                                {
+                                        accelerator: 'CmdOrCtrl+X',
+                                        click: () => sendAccelerator('accelerator:cut-passages'),
+                                        label: i18n.t('common.cut', {defaultValue: 'Cut'})
+                                },
+                                {
+                                        accelerator: 'CmdOrCtrl+V',
+                                        click: () => sendAccelerator('accelerator:paste-passages'),
+                                        label: i18n.t('common.paste', {defaultValue: 'Paste'})
+                                }
+                        ]
+                },
 		{
 			label: i18n.t('electron.menuBar.view'),
 			submenu: [

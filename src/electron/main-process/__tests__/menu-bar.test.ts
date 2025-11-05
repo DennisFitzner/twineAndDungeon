@@ -36,19 +36,28 @@ function expectSubmenu(
 }
 
 function findMenuItem(
-	submenu: MenuItemConstructorOptions[],
-	label: string
+        submenu: MenuItemConstructorOptions[],
+        label: string
 ): MenuItemConstructorOptions {
-	const item = submenu.find(menuItem => menuItem.label === label);
-	expect(item).toBeDefined();
-	return item as MenuItemConstructorOptions;
+        const item = submenu.find(menuItem => menuItem.label === label);
+        expect(item).toBeDefined();
+        return item as MenuItemConstructorOptions;
+}
+
+function findMenuItemByAccelerator(
+        submenu: MenuItemConstructorOptions[],
+        accelerator: string
+): MenuItemConstructorOptions {
+        const item = submenu.find(menuItem => menuItem.accelerator === accelerator);
+        expect(item).toBeDefined();
+        return item as MenuItemConstructorOptions;
 }
 
 function invokeClick(item: MenuItemConstructorOptions) {
-	expect(item.click).toBeDefined();
-	(item.click as (menuItem: MenuItem, browserWindow: BrowserWindow, event: any) => void)(
-		{} as MenuItem,
-		{} as BrowserWindow,
+        expect(item.click).toBeDefined();
+        (item.click as (menuItem: MenuItem, browserWindow: BrowserWindow, event: any) => void)(
+                {} as MenuItem,
+                {} as BrowserWindow,
 		{}
 	);
 }
@@ -162,27 +171,46 @@ describe('initMenuBar', () => {
 			const menu = menuTemplate.find(item => item.label === 'common.story');
 
 			expect(menu?.label).toBe('common.story');
-			const submenu = expectSubmenu(menu);
-			const newPassage = findMenuItem(submenu, 'undoChange.newPassage');
-			const newStoryPart = findMenuItem(
-				submenu,
-				'storyPartTabs.createNewPart'
-			);
+                        const submenu = expectSubmenu(menu);
+                        const newPassage = findMenuItem(submenu, 'undoChange.newPassage');
+                        const newStoryPart = findMenuItem(
+                                submenu,
+                                'storyPartTabs.createNewPart'
+                        );
 
-			expect(newPassage?.accelerator).toBe('CmdOrCtrl+N');
-			invokeClick(newPassage);
-			expect(sendAcceleratorMock).toHaveBeenCalledWith('accelerator:new-passage');
+                        expect(newPassage?.accelerator).toBe('CmdOrCtrl+N');
+                        invokeClick(newPassage);
+                        expect(sendAcceleratorMock).toHaveBeenCalledWith('accelerator:new-passage');
+                        sendAcceleratorMock.mockClear();
 
-			expect(newStoryPart?.accelerator).toBe('CmdOrCtrl+P');
-			invokeClick(newStoryPart);
-			expect(sendAcceleratorMock).toHaveBeenCalledWith(
-				'accelerator:new-story-part'
-			);
+                        for (let index = 0; index < 9; index++) {
+                                const shortcut = findMenuItemByAccelerator(
+                                        submenu,
+                                        `CmdOrCtrl+${index + 1}`
+                                );
 
-			const copyPassages = findMenuItem(submenu, 'common.copy');
-			expect(copyPassages?.accelerator).toBe('CmdOrCtrl+C');
-			invokeClick(copyPassages);
-			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+                                expect(shortcut?.label).toBe(
+                                        'electron.menuBar.newPassageForCharacter'
+                                );
+                                invokeClick(shortcut);
+                                expect(sendAcceleratorMock).toHaveBeenCalledWith(
+                                        'accelerator:new-passage',
+                                        {characterIndex: index}
+                                );
+                                sendAcceleratorMock.mockClear();
+                        }
+
+                        expect(newStoryPart?.accelerator).toBe('CmdOrCtrl+P');
+                        invokeClick(newStoryPart);
+                        expect(sendAcceleratorMock).toHaveBeenCalledWith(
+                                'accelerator:new-story-part'
+                        );
+                        sendAcceleratorMock.mockClear();
+
+                        const copyPassages = findMenuItem(submenu, 'common.copy');
+                        expect(copyPassages?.accelerator).toBe('CmdOrCtrl+C');
+                        invokeClick(copyPassages);
+                        expect(sendAcceleratorMock).toHaveBeenCalledWith(
 				'accelerator:copy-passages'
 			);
 
@@ -411,27 +439,46 @@ describe('initMenuBar', () => {
 			const menu = menuTemplate.find(item => item.label === 'common.story');
 
 			expect(menu?.label).toBe('common.story');
-			const submenu = expectSubmenu(menu);
-			const newPassage = findMenuItem(submenu, 'undoChange.newPassage');
-			const newStoryPart = findMenuItem(
-				submenu,
-				'storyPartTabs.createNewPart'
-			);
+                        const submenu = expectSubmenu(menu);
+                        const newPassage = findMenuItem(submenu, 'undoChange.newPassage');
+                        const newStoryPart = findMenuItem(
+                                submenu,
+                                'storyPartTabs.createNewPart'
+                        );
 
-			expect(newPassage?.accelerator).toBe('CmdOrCtrl+N');
-			invokeClick(newPassage);
-			expect(sendAcceleratorMock).toHaveBeenCalledWith('accelerator:new-passage');
+                        expect(newPassage?.accelerator).toBe('CmdOrCtrl+N');
+                        invokeClick(newPassage);
+                        expect(sendAcceleratorMock).toHaveBeenCalledWith('accelerator:new-passage');
+                        sendAcceleratorMock.mockClear();
 
-			expect(newStoryPart?.accelerator).toBe('CmdOrCtrl+P');
-			invokeClick(newStoryPart);
-			expect(sendAcceleratorMock).toHaveBeenCalledWith(
-				'accelerator:new-story-part'
-			);
+                        for (let index = 0; index < 9; index++) {
+                                const shortcut = findMenuItemByAccelerator(
+                                        submenu,
+                                        `CmdOrCtrl+${index + 1}`
+                                );
 
-			const copyPassages = findMenuItem(submenu, 'common.copy');
-			expect(copyPassages?.accelerator).toBe('CmdOrCtrl+C');
-			invokeClick(copyPassages);
-			expect(sendAcceleratorMock).toHaveBeenCalledWith(
+                                expect(shortcut?.label).toBe(
+                                        'electron.menuBar.newPassageForCharacter'
+                                );
+                                invokeClick(shortcut);
+                                expect(sendAcceleratorMock).toHaveBeenCalledWith(
+                                        'accelerator:new-passage',
+                                        {characterIndex: index}
+                                );
+                                sendAcceleratorMock.mockClear();
+                        }
+
+                        expect(newStoryPart?.accelerator).toBe('CmdOrCtrl+P');
+                        invokeClick(newStoryPart);
+                        expect(sendAcceleratorMock).toHaveBeenCalledWith(
+                                'accelerator:new-story-part'
+                        );
+                        sendAcceleratorMock.mockClear();
+
+                        const copyPassages = findMenuItem(submenu, 'common.copy');
+                        expect(copyPassages?.accelerator).toBe('CmdOrCtrl+C');
+                        invokeClick(copyPassages);
+                        expect(sendAcceleratorMock).toHaveBeenCalledWith(
 				'accelerator:copy-passages'
 			);
 
