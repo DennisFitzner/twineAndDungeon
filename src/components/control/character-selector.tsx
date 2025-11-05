@@ -10,17 +10,18 @@ export interface Character {
 }
 
 export interface CharacterSelectorProps {
-	characters: Character[];
-	selectedCharacterIds: string[];
-	onChange: (characterIds: string[]) => void;
-	disabled?: boolean;
+        characters: Character[];
+        selectedCharacterIds: string[];
+        onChange: (characterIds: string[]) => void;
+        disabled?: boolean;
+        label?: string;
 }
 
 export const CharacterSelector: React.FC<CharacterSelectorProps> = props => {
-	const {characters, selectedCharacterIds, onChange, disabled} = props;
-	const {t} = useTranslation();
-	const [isOpen, setIsOpen] = React.useState(false);
-	const dropdownRef = React.useRef<HTMLDivElement>(null);
+        const {characters, selectedCharacterIds, onChange, disabled, label} = props;
+        const {t} = useTranslation();
+        const [isOpen, setIsOpen] = React.useState(false);
+        const dropdownRef = React.useRef<HTMLDivElement>(null);
 
 	const handleCharacterToggle = React.useCallback(
 		(characterId: string) => {
@@ -77,19 +78,19 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = props => {
 					count: selectedCharacters.length
 			  });
 
-	return (
-		<div className="character-selector" ref={dropdownRef}>
-			<button
-				className={classNames('character-selector-trigger', {
+        const labelText = label ?? t('dialogs.passageEdit.characters');
+
+        return (
+                <div className="character-selector" ref={dropdownRef}>
+                        <button
+                                className={classNames('character-selector-trigger', {
 					'character-selector-trigger--disabled': disabled
 				})}
 				disabled={disabled}
 				onClick={handleToggleDropdown}
 				type="button"
 			>
-				<span className="character-selector-label">
-					{t('dialogs.passageEdit.characters')}:
-				</span>
+                                <span className="character-selector-label">{labelText}:</span>
 				<span className="character-selector-display">{displayText}</span>
 				<span
 					className={classNames('character-selector-arrow', {
