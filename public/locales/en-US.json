@@ -481,9 +481,10 @@
                 "nameConflict": "A story part with this name already exists",
                 "partCharacters": "Part Characters"
         },
-	"storyActions": {
-		"loadStoryParts": "Load Story Parts"
-	},
+        "storyActions": {
+                "loadStoryParts": "Load Story Parts",
+                "reloadCharacters": "Reload Characters"
+        },
 	"storyPartsBrowser": {
 		"title": "Load Story Parts",
 		"selectAll": "Select All",

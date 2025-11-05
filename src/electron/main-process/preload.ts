@@ -35,12 +35,15 @@ contextBridge.exposeInMainWorld('twineElectron', {
 	loadPrefs() {
 		return ipcRenderer.invoke('load-prefs');
 	},
-	loadStories() {
-		return ipcRenderer.invoke('load-stories');
-	},
-	loadStoryFormats() {
-		return ipcRenderer.invoke('load-story-formats');
-	},
+        loadStories() {
+                return ipcRenderer.invoke('load-stories');
+        },
+        loadCharacters(story: Story) {
+                return ipcRenderer.invoke('load-characters', story);
+        },
+        loadStoryFormats() {
+                return ipcRenderer.invoke('load-story-formats');
+        },
 	onceStoryRenamed(callback: () => void): void {
 		ipcRenderer.once('story-renamed', callback);
 	},

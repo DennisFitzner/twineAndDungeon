@@ -13,30 +13,32 @@ import {StoryPartCharacterSelector} from './story/story-part-character-selector'
 import './story-edit-toolbar.css';
 
 export interface StoryEditToolbarProps {
-	getCenter: () => Point;
-	onOpenFuzzyFinder: () => void;
-	story: Story;
-	storyParts?: Story[];
-	activePartIfid?: string;
-	onSelectPart?: (partIfid: string) => void;
-	onClosePart?: (partIfid: string) => void;
-	onCreatePart?: (partName: string) => void;
-	onLoadParts?: () => void;
+        getCenter: () => Point;
+        onOpenFuzzyFinder: () => void;
+        story: Story;
+        storyParts?: Story[];
+        activePartIfid?: string;
+        onSelectPart?: (partIfid: string) => void;
+        onClosePart?: (partIfid: string) => void;
+        onCreatePart?: (partName: string) => void;
+        onLoadParts?: () => void;
+        onReloadCharacters?: () => void;
 }
 
 export const StoryEditToolbar: React.FC<StoryEditToolbarProps> = props => {
-	const {
-		getCenter,
+        const {
+                getCenter,
 		onOpenFuzzyFinder,
 		story,
-		storyParts,
-		activePartIfid,
-		onSelectPart,
-		onClosePart,
-		onCreatePart,
-		onLoadParts
-	} = props;
-	const {t} = useTranslation();
+                storyParts,
+                activePartIfid,
+                onSelectPart,
+                onClosePart,
+                onCreatePart,
+                onLoadParts,
+                onReloadCharacters
+        } = props;
+        const {t} = useTranslation();
 
 	return (
 		<RouteToolbar
@@ -54,9 +56,13 @@ export const StoryEditToolbar: React.FC<StoryEditToolbarProps> = props => {
 						story={story}
 					/>
 				),
-				[t('common.story')]: (
-					<StoryActions story={story} onLoadParts={onLoadParts} />
-				),
+                                [t('common.story')]: (
+                                        <StoryActions
+                                                story={story}
+                                                onLoadParts={onLoadParts}
+                                                onReloadCharacters={onReloadCharacters}
+                                        />
+                                ),
 				[t('common.build')]: <BuildActions story={story} />,
 				[t('common.appName')]: <AppActions />
 			}}
