@@ -1,0 +1,12 @@
+@import '../../../styles/metrics.css';
+
+.story-part-toolbar-row {
+        display: flex;
+        align-items: center;
+        gap: var(--ui-gap);
+        width: 100%;
+}
+
+.story-part-toolbar-row .story-part-tabs {
+        flex: 1;
+}

@@ -60,14 +60,19 @@ export interface Character {
 }
 
 export interface Story {
-	/**
-	 * Characters available in this story.
-	 */
-	characters?: Character[];
-	/**
-	 * IFID of the story. An IFID should stay stable when a story is imported or exported.
-	 */
-	ifid: string;
+        /**
+         * Characters available in this story.
+         */
+        characters?: Character[];
+        /**
+         * Character IDs available for this specific story part. If undefined, all
+         * characters are available.
+         */
+        partCharacterIds?: string[];
+        /**
+         * IFID of the story. An IFID should stay stable when a story is imported or exported.
+         */
+        ifid: string;
 	/**
 	 * GUID identifying the story.
 	 */

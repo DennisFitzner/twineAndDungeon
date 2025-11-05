@@ -9,6 +9,8 @@ import {PassageActions} from './passage/passage-actions';
 import {StoryActions} from './story/story-actions';
 import {UndoRedoButtons} from './undo-redo-buttons';
 import {ZoomButtons} from './zoom-buttons';
+import {StoryPartCharacterSelector} from './story/story-part-character-selector';
+import './story-edit-toolbar.css';
 
 export interface StoryEditToolbarProps {
 	getCenter: () => Point;
@@ -58,17 +60,23 @@ export const StoryEditToolbar: React.FC<StoryEditToolbarProps> = props => {
 				[t('common.build')]: <BuildActions story={story} />,
 				[t('common.appName')]: <AppActions />
 			}}
-			additionalRow={
-				storyParts && storyParts.length > 0 ? (
-					<StoryPartTabs
-						storyParts={storyParts}
-						activePartIfid={activePartIfid || story.ifid}
-						onSelectPart={onSelectPart || (() => {})}
-						onClosePart={onClosePart || (() => {})}
-						onCreatePart={onCreatePart || ((_partName: string) => {})} // eslint-disable-line @typescript-eslint/no-unused-vars
-					/>
-				) : undefined
-			}
-		/>
-	);
+                        additionalRow={
+                                storyParts && storyParts.length > 0 ? (
+                                        <div className="story-part-toolbar-row">
+                                                <StoryPartTabs
+                                                        storyParts={storyParts}
+                                                        activePartIfid={activePartIfid || story.ifid}
+                                                        onSelectPart={onSelectPart || (() => {})}
+                                                        onClosePart={onClosePart || (() => {})}
+                                                        onCreatePart={
+                                                                onCreatePart ||
+                                                                ((_partName: string) => {})
+                                                        } // eslint-disable-line @typescript-eslint/no-unused-vars
+                                                />
+                                                <StoryPartCharacterSelector story={story} />
+                                        </div>
+                                ) : undefined
+                        }
+                />
+        );
 };
