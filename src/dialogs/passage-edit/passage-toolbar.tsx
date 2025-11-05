@@ -44,8 +44,23 @@ export const PassageToolbar: React.FC<PassageToolbarProps> = props => {
 				.filter(id => id)
 		: [];
 
-	// Get characters from story - this will be populated when characters.json is loaded
-	const characters = story.characters || [];
+        // Get characters from story - this will be populated when characters.json is loaded
+        const characters = React.useMemo(() => {
+                const storyCharacters = story.characters || [];
+                const partCharacterIds = story.partCharacterIds;
+
+                if (partCharacterIds === undefined) {
+                        return storyCharacters;
+                }
+
+                const characterById = new Map(
+                        storyCharacters.map(character => [character.id, character])
+                );
+
+                return partCharacterIds
+                        .map(id => characterById.get(id))
+                        .filter((char): char is typeof storyCharacters[number] => Boolean(char));
+        }, [story.characters, story.partCharacterIds]);
 
 	function handleAddTag(name: string) {
 		dispatch(addPassageTag(story, passage, name), t('undoChange.addTag'));
@@ -104,12 +119,12 @@ export const PassageToolbar: React.FC<PassageToolbarProps> = props => {
 				tagColors={story.tagColors}
 				tags={passage.tags}
 			/>
-			{characters.length > 0 && (
-				<CharacterSelector
-					characters={characters}
-					disabled={disabled}
-					onChange={handleCharacterChange}
-					selectedCharacterIds={selectedCharacterIds}
+                        {characters.length > 0 && (
+                                <CharacterSelector
+                                        characters={characters}
+                                        disabled={disabled}
+                                        onChange={handleCharacterChange}
+                                        selectedCharacterIds={selectedCharacterIds}
 				/>
 			)}
 			<MenuButton

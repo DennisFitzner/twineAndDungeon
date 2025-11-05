@@ -14,18 +14,19 @@ export const passageDefaults = (): Omit<Passage, 'id' | 'story'> => ({
 });
 
 export const storyDefaults = (): Omit<Story, 'id'> => ({
-	ifid: '',
-	lastUpdate: new Date(),
-	passages: [],
-	name: i18n.t('store.storyDefaults.name'),
-	script: '',
-	selected: false,
-	snapToGrid: true,
-	startPassage: '',
-	storyFormat: '',
-	storyFormatVersion: '',
-	stylesheet: '',
-	tags: [],
-	tagColors: {},
-	zoom: 1
+        ifid: '',
+        lastUpdate: new Date(),
+        passages: [],
+        name: i18n.t('store.storyDefaults.name'),
+        script: '',
+        selected: false,
+        snapToGrid: true,
+        startPassage: '',
+        storyFormat: '',
+        storyFormatVersion: '',
+        stylesheet: '',
+        tags: [],
+        tagColors: {},
+        zoom: 1,
+        partCharacterIds: undefined
 });
