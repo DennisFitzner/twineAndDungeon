@@ -1,15 +1,16 @@
 import {app, dialog, shell} from 'electron';
 import {
-	mkdirp,
-	mkdtemp,
-	move,
-	readdir,
-	readFile,
-	rename,
-	stat,
-	writeFile
+        mkdirp,
+        mkdtemp,
+        move,
+        readdir,
+        readFile,
+        rename,
+        stat,
+        writeFile
 } from 'fs-extra';
-import {basename, join} from 'path';
+import {basename, isAbsolute, join} from 'path';
+import {pathToFileURL} from 'url';
 import {v4 as uuid} from '@lukeed/uuid';
 import {i18n} from './locales';
 import {getStoryDirectoryPath} from './story-directory';
@@ -19,7 +20,7 @@ import {Story} from '../../store/stories/stories.types';
 /**
  * Returns the folder path for a story based on its title.
  */
-function getStoryFolderPath(story: Story) {
+export function getStoryFolderPath(story: Story) {
 	// For story parts, use the storyFolderName if it exists
 	const folderName = story.storyFolderName || story.name;
 	return join(getStoryDirectoryPath(), folderName);
@@ -54,8 +55,64 @@ export interface StoryFile {
 }
 
 export interface Character {
-	id: string;
-	name: string;
+        id: string;
+        name: string;
+        color?: string;
+        image?: string;
+}
+
+function isValidUrl(value: string) {
+        try {
+                // eslint-disable-next-line no-new
+                new URL(value);
+                return true;
+        } catch (error) {
+                return false;
+        }
+}
+
+function normalizeCharacterImage(character: Character, folderPath: string): Character {
+        if (!character.image || isValidUrl(character.image)) {
+                return character;
+        }
+
+        const resolvedPath = isAbsolute(character.image)
+                ? character.image
+                : join(folderPath, character.image);
+
+        return {
+                ...character,
+                image: pathToFileURL(resolvedPath).toString()
+        };
+}
+
+export async function loadCharactersFromFolder(
+        folderPath: string
+): Promise<Character[] | undefined> {
+        const charactersFilePath = join(folderPath, 'characters.json');
+
+        try {
+                const charactersStats = await stat(charactersFilePath);
+                if (charactersStats.isDirectory()) {
+                        return undefined;
+                }
+        } catch (error) {
+                const err = error as NodeJS.ErrnoException;
+                if (err.code === 'ENOENT') {
+                        return undefined;
+                }
+                console.error(`Failed to access characters.json in ${folderPath}:`, error);
+                return undefined;
+        }
+
+        try {
+                const charactersContent = await readFile(charactersFilePath, 'utf8');
+                const parsed = JSON.parse(charactersContent) as Character[];
+                return parsed.map(character => normalizeCharacterImage(character, folderPath));
+        } catch (error) {
+                console.error(`Failed to load characters.json from ${charactersFilePath}:`, error);
+                return undefined;
+        }
 }
 
 /**
@@ -74,23 +131,7 @@ export async function loadStories() {
 			try {
 				const folderStats = await stat(folderPath);
 				if (folderStats.isDirectory()) {
-					const charactersFilePath = join(folderPath, 'characters.json');
-					let characters: Character[] | undefined;
-
-					// Try to load characters.json if it exists
-					try {
-						const charactersStats = await stat(charactersFilePath);
-						if (!charactersStats.isDirectory()) {
-							const charactersContent = await readFile(
-								charactersFilePath,
-								'utf8'
-							);
-							characters = JSON.parse(charactersContent);
-						}
-					} catch (error) {
-						// characters.json doesn't exist or is invalid, that's okay
-						console.log(`No characters.json found for story ${f}`);
-					}
+                                        const characters = await loadCharactersFromFolder(folderPath);
 
 					// Look for all HTML files in the folder
 					const folderFiles = await readdir(folderPath);
@@ -285,4 +326,3 @@ export async function createStoryPart(
 	}
 }
 
-export {getStoryFolderPath};

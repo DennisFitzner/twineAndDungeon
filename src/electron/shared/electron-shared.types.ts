@@ -1,4 +1,4 @@
-import {Story} from '../../store/stories/stories.types';
+import {Character, Story} from '../../store/stories/stories.types';
 
 export interface TwineElectronWindow extends Window {
 	twineElectron?: {
@@ -25,7 +25,8 @@ export interface TwineElectronWindow extends Window {
 			characters?: any;
 		}>;
 		loadPrefs(): Promise<any>;
-		loadStories(): Promise<any>;
+                loadStories(): Promise<any>;
+                loadCharacters(story: Story): Promise<Character[] | undefined>;
 		loadStoryFormats(): Promise<any>;
 		onceStoryRenamed(callback: () => void): void;
 		openWithScratchFile(data: string, filename: string): void;
