@@ -67,16 +67,37 @@ describe('<StoryActions>', () => {
 		).toBeInTheDocument();
 	});
 
-	it('displays a story stylesheet button', async () => {
-		await renderComponent();
-		expect(
-			screen.getByText('routes.storyEdit.toolbar.stylesheet')
-		).toBeInTheDocument();
-	});
+        it('displays a story stylesheet button', async () => {
+                await renderComponent();
+                expect(
+                        screen.getByText('routes.storyEdit.toolbar.stylesheet')
+                ).toBeInTheDocument();
+        });
 
-	it('is accessible', async () => {
-		const {container} = await renderComponent();
+        it('displays a reload characters button when a handler is provided', async () => {
+                const story = fakeStory();
+                const handleReload = jest.fn();
 
-		expect(await axe(container)).toHaveNoViolations();
-	});
+                render(
+                        <FakeStateProvider stories={[story]}>
+                                <StoryActions
+                                        story={story}
+                                        onReloadCharacters={handleReload}
+                                />
+                        </FakeStateProvider>
+                );
+
+                await act(() => Promise.resolve());
+
+                const button = screen.getByText('storyActions.reloadCharacters');
+                expect(button).toBeInTheDocument();
+                fireEvent.click(button);
+                expect(handleReload).toHaveBeenCalled();
+        });
+
+        it('is accessible', async () => {
+                const {container} = await renderComponent();
+
+                expect(await axe(container)).toHaveNoViolations();
+        });
 });

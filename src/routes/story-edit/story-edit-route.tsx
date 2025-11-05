@@ -4,6 +4,7 @@ import {MainContent} from '../../components/container/main-content';
 import {DocumentTitle} from '../../components/document-title/document-title';
 import {DialogsContextProvider} from '../../dialogs';
 import {storyWithId} from '../../store/stories';
+import type {Character} from '../../store/stories';
 import {
 	UndoableStoriesContextProvider,
 	useUndoableStoriesContext
@@ -666,16 +667,16 @@ export const InnerStoryEditRoute: React.FC = () => {
 	);
 
 	// Handle loading story parts from custom browser
-	const handleLoadParts = React.useCallback(async () => {
-		const {twineElectron} = window as TwineElectronWindow;
-		if (!twineElectron) {
-			console.error('Electron bridge not available');
-			return;
-		}
+        const handleLoadParts = React.useCallback(async () => {
+                const {twineElectron} = window as TwineElectronWindow;
+                if (!twineElectron) {
+                        console.error('Electron bridge not available');
+                        return;
+                }
 
-		try {
-			// Get the full story folder path
-			const storyFolderPath = await twineElectron.getStoryFolderPath(story);
+                try {
+                        // Get the full story folder path
+                        const storyFolderPath = await twineElectron.getStoryFolderPath(story);
 
 			// Scan for available story parts
 			const parts = await twineElectron.scanStoryParts(storyFolderPath);
@@ -692,8 +693,68 @@ export const InnerStoryEditRoute: React.FC = () => {
 			});
 		} catch (error) {
 			console.error('Failed to scan story parts:', error);
-		}
-	}, [story, dialogsDispatch, handleSelectParts]);
+                }
+        }, [story, dialogsDispatch, handleSelectParts]);
+
+        const handleReloadCharacters = React.useCallback(async () => {
+                const {twineElectron} = window as TwineElectronWindow;
+
+                if (!twineElectron || !twineElectron.loadCharacters) {
+                        console.error('Character reloading is not available in this environment');
+                        return;
+                }
+
+                try {
+                        const characters = await twineElectron.loadCharacters(story);
+                        const folderName = story.storyFolderName || story.name;
+                        const haveSameCharacters = (
+                                current: Character[] | undefined,
+                                next: Character[] | undefined
+                        ) => {
+                                if (!current && !next) {
+                                        return true;
+                                }
+
+                                if (!current || !next) {
+                                        return false;
+                                }
+
+                                if (current.length !== next.length) {
+                                        return false;
+                                }
+
+                                return current.every((char, index) => {
+                                        const other = next[index];
+                                        if (!other) return false;
+                                        return (
+                                                char.id === other.id &&
+                                                char.name === other.name &&
+                                                char.color === other.color &&
+                                                char.image === other.image
+                                        );
+                                });
+                        };
+
+                        stories
+                                .filter(
+                                        s => (s.storyFolderName || s.name) === folderName
+                                )
+                                .forEach(s => {
+                                        // Only dispatch if the characters actually changed
+                                        if (haveSameCharacters(s.characters, characters)) {
+                                                return;
+                                        }
+
+                                        dispatch({
+                                                type: 'updateStory',
+                                                storyId: s.id,
+                                                props: {characters: characters ?? undefined}
+                                        });
+                                });
+                } catch (error) {
+                        console.error('Failed to reload characters:', error);
+                }
+        }, [dispatch, stories, story]);
 
 	return (
 		<div className="story-edit-route">
@@ -703,12 +764,13 @@ export const InnerStoryEditRoute: React.FC = () => {
 				onOpenFuzzyFinder={() => setFuzzyFinderOpen(true)}
 				story={activeStory}
 				storyParts={storyParts}
-				activePartIfid={activePartIfid}
-				onSelectPart={handleSelectPart}
-				onClosePart={handleClosePart}
-				onCreatePart={handleCreatePart}
-				onLoadParts={handleLoadParts}
-			/>
+                                activePartIfid={activePartIfid}
+                                onSelectPart={handleSelectPart}
+                                onClosePart={handleClosePart}
+                                onCreatePart={handleCreatePart}
+                                onLoadParts={handleLoadParts}
+                                onReloadCharacters={handleReloadCharacters}
+                        />
 			<MainContent grabbable padded={false} ref={mainContent}>
 				<MarqueeablePassageMap
 					container={mainContent}

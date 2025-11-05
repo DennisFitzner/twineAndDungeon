@@ -4,11 +4,13 @@ import type {DebouncedFunc} from 'lodash';
 import {i18n} from './locales';
 import {saveJsonFile} from './json-file';
 import {
-	createStoryPart,
-	deleteStory,
-	loadStories,
-	renameStory,
-	saveStoryHtml
+        createStoryPart,
+        deleteStory,
+        getStoryFolderPath,
+        loadCharactersFromFolder,
+        loadStories,
+        renameStory,
+        saveStoryHtml
 } from './story-file';
 import {Story} from '../../store/stories/stories.types';
 import {readFile} from 'fs-extra';
@@ -106,20 +108,30 @@ export function initIpc() {
 		}
 	});
 
-	ipcMain.handle('get-story-folder-path', async (event, story: Story) => {
-		try {
-			const {getStoryFolderPath} = await import('./story-file');
-			return getStoryFolderPath(story);
-		} catch (error) {
-			throw new Error(
-				`Failed to get story folder path: ${(error as Error).message}`
-			);
-		}
-	});
+        ipcMain.handle('get-story-folder-path', async (event, story: Story) => {
+                try {
+                        return getStoryFolderPath(story);
+                } catch (error) {
+                        throw new Error(
+                                `Failed to get story folder path: ${(error as Error).message}`
+                        );
+                }
+        });
 
-	ipcMain.handle('scan-story-parts', async (event, storyFolderPath: string) => {
-		try {
-			const {readdir, stat} = await import('fs-extra');
+        ipcMain.handle('load-characters', async (event, story: Story) => {
+                try {
+                        const folderPath = getStoryFolderPath(story);
+                        return await loadCharactersFromFolder(folderPath);
+                } catch (error) {
+                        throw new Error(
+                                `Failed to load characters: ${(error as Error).message}`
+                        );
+                }
+        });
+
+        ipcMain.handle('scan-story-parts', async (event, storyFolderPath: string) => {
+                try {
+                        const {readdir, stat} = await import('fs-extra');
 			const {join, relative} = await import('path');
 
 			const parts: Array<{
@@ -162,8 +174,8 @@ export function initIpc() {
 
 	ipcMain.handle('load-story-part', async (event, filePath: string) => {
 		try {
-			const {readFile, stat} = await import('fs-extra');
-			const {join, dirname, basename} = await import('path');
+                        const {readFile, stat} = await import('fs-extra');
+                        const {dirname, basename} = await import('path');
 
 			// Read the HTML file
 			const htmlSource = await readFile(filePath, 'utf8');
@@ -173,16 +185,7 @@ export function initIpc() {
 			const partName = basename(filePath, '.html');
 			const folderName = basename(dirname(filePath));
 
-			// Try to load characters.json if it exists
-			let characters;
-			try {
-				const charactersPath = join(dirname(filePath), 'characters.json');
-				const charactersContent = await readFile(charactersPath, 'utf8');
-				characters = JSON.parse(charactersContent);
-			} catch (error) {
-				// characters.json doesn't exist or is invalid, that's okay
-				characters = undefined;
-			}
+                        const characters = await loadCharactersFromFolder(dirname(filePath));
 
 			return {
 				htmlSource,
