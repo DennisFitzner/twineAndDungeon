@@ -367,24 +367,44 @@ function passageToTweeWithPrefix(
 }
 
 /**
- * Processes passage text to add story part prefixes to links and remove backlinks/interlinks.
- * Only processes regular Twine links ([[link]] and [[link|text]]), completely removes backlinks and interlinks.
+ * Processes passage text to add story part prefixes to links and normalise
+ * backlink/interlink shortcuts so they resolve straight to their targets.
  */
 export function processLinksWithPrefix(
         text: string,
         storyPartName: string
 ): string {
-	// First, remove all backlinks and interlinks completely
-	let processedText = text
-		.replace(/\[\[<-[^\]]+\]\]/g, '') // Remove backlinks [[<-link]]
-		.replace(/\[\[->[^\]]+\]\]/g, ''); // Remove interlinks [[->link]]
+        let processedText = text;
 
-	// Then process regular Twine links [[link]] and [[link|text]]
-	const linkPattern = /\[\[([^<>\]]+)(?:\|([^\]]+))?\]\]/g;
+        // Normalise interlink/backlink shortcuts ([[->Target]] / [[Target<-]]) to
+        // standard Twine links so the passages they point to remain reachable.
+        const crossLinkPattern = /\[\[\s*(->)?\s*([^|\]]+?)\s*(<-)?(?:\|([^\]]+))?\s*\]\]/g;
 
-	processedText = processedText.replace(
-		linkPattern,
-		(match, link, displayText) => {
+        processedText = processedText.replace(
+                crossLinkPattern,
+                (match, leadingArrow, target, trailingArrow, displayText) => {
+                        if (!leadingArrow && !trailingArrow) {
+                                return match;
+                        }
+
+                        const trimmedTarget = target.trim();
+                        const normalisedTarget = trimmedTarget.includes(':')
+                                ? trimmedTarget
+                                : `${storyPartName}:${trimmedTarget}`;
+                        const trimmedDisplay = displayText?.trim();
+
+                        return trimmedDisplay
+                                ? `[[${normalisedTarget}|${trimmedDisplay}]]`
+                                : `[[${normalisedTarget}]]`;
+                }
+        );
+
+        // Then process regular Twine links [[link]] and [[link|text]]
+        const linkPattern = /\[\[([^<>\]]+)(?:\|([^\]]+))?\]\]/g;
+
+        processedText = processedText.replace(
+                linkPattern,
+                (match, link, displayText) => {
 			// Skip if link already has a colon (already prefixed)
 			if (link.includes(':')) {
 				return match;

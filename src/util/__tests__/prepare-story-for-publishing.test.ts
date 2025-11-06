@@ -155,4 +155,48 @@ describe('prepareStoryForPublishing', () => {
                 const result = prepareStoryForPublishing(story, [story]);
                 expect(result).toBe(story);
         });
+
+        it('rewrites interlink passages to jump directly to their targets', () => {
+                const partA = createStory({
+                        id: 'part-a',
+                        name: 'Part A',
+                        partName: 'PartA',
+                        storyFolderName: 'Saga',
+                        startPassage: 'start'
+                });
+
+                const partB = createStory({
+                        id: 'part-b',
+                        name: 'Part B',
+                        partName: 'PartB',
+                        storyFolderName: 'Saga',
+                        startPassage: 'intro'
+                });
+
+                partA.passages = [
+                        createPassage({
+                                id: 'start',
+                                name: 'Start',
+                                story: partA.id,
+                                text: 'Take the shortcut [[->PartB:Intro]]'
+                        })
+                ];
+
+                partB.passages = [
+                        createPassage({
+                                id: 'intro',
+                                name: 'Intro',
+                                story: partB.id,
+                                text: 'Welcome back [[PartA:Start<-]]'
+                        })
+                ];
+
+                const combined = prepareStoryForPublishing(partA, [partA, partB]);
+
+                const startPassage = combined.passages.find(p => p.name === 'PartA:Start');
+                expect(startPassage?.text).toContain('[[PartB:Intro]]');
+
+                const introPassage = combined.passages.find(p => p.name === 'PartB:Intro');
+                expect(introPassage?.text).toContain('[[PartA:Start]]');
+        });
 });
