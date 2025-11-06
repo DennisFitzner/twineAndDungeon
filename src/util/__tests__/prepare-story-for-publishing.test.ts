@@ -120,7 +120,10 @@ describe('prepareStoryForPublishing', () => {
                         })
                 ];
 
-                const combined = prepareStoryForPublishing(partA, [partA, partB]);
+                const {story: combined, passageIdMap} = prepareStoryForPublishing(partA, [
+                        partA,
+                        partB
+                ]);
 
                 expect(combined.name).toBe('Saga');
                 expect(combined.passages).toHaveLength(3);
@@ -144,6 +147,8 @@ describe('prepareStoryForPublishing', () => {
                 ).toBe(true);
 
                 expect(combined.startPassage).toBe('part-a:start-a');
+                expect(passageIdMap.get('start-a')).toBe('part-a:start-a');
+                expect(passageIdMap.get('intro-b')).toBe('part-b:intro-b');
                 expect(combined.script).toBe('/* part A script */\n\n/* part B script */');
                 expect(combined.stylesheet).toBe('/* part A style */\n\n/* part B style */');
                 expect(new Set(combined.tags)).toEqual(new Set(['adventure', 'mystery']));
@@ -163,8 +168,11 @@ describe('prepareStoryForPublishing', () => {
                         startPassage: 'start'
                 });
 
-                const result = prepareStoryForPublishing(story, [story]);
-                expect(result).toBe(story);
+                const {story: resultStory, passageIdMap} = prepareStoryForPublishing(story, [
+                        story
+                ]);
+                expect(resultStory).toBe(story);
+                expect(passageIdMap.get('start')).toBe('start');
         });
 
         it('rewrites interlink passages to jump directly to their targets', () => {
@@ -202,7 +210,7 @@ describe('prepareStoryForPublishing', () => {
                         })
                 ];
 
-                const combined = prepareStoryForPublishing(partA, [partA, partB]);
+                const {story: combined} = prepareStoryForPublishing(partA, [partA, partB]);
 
                 const startPassage = combined.passages.find(p => p.name === 'PartA:Start');
                 expect(startPassage?.text).toContain('[[PartB:Intro]]');

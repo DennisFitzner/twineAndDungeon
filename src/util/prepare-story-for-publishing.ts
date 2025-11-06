@@ -1,6 +1,11 @@
 import {Passage, Story} from '../store/stories';
 import {processLinksWithPrefix} from './twee';
 
+export interface PreparedStory {
+        story: Story;
+        passageIdMap: Map<string, string>;
+}
+
 const CROSS_LINK_TAGS = new Set(['interlink', 'backlink']);
 
 type TagMap = Map<string, string>;
@@ -211,7 +216,10 @@ function buildCrossLinkRedirects(
  * prefix, local links are updated to reference the prefixed names and editing-only
  * passages (interlink/backlink cards) are removed entirely.
  */
-export function prepareStoryForPublishing(story: Story, allStories: Story[]): Story {
+export function prepareStoryForPublishing(
+        story: Story,
+        allStories: Story[]
+): PreparedStory {
         const folderName = (story.storyFolderName || story.name).trim();
         const relatedStories = allStories.filter(candidate => {
                 const candidateFolder = (candidate.storyFolderName || candidate.name).trim();
@@ -219,7 +227,18 @@ export function prepareStoryForPublishing(story: Story, allStories: Story[]): St
         });
 
         if (relatedStories.length <= 1) {
-                return story;
+                const identityMap = new Map<string, string>();
+
+                story.passages.forEach(passage => {
+                        identityMap.set(passage.id, passage.id);
+                });
+
+                identityMap.set(story.startPassage, story.startPassage);
+
+                return {
+                        story,
+                        passageIdMap: identityMap
+                };
         }
 
         const hasAdditionalPart = relatedStories.some(candidate => {
@@ -235,7 +254,18 @@ export function prepareStoryForPublishing(story: Story, allStories: Story[]): St
         });
 
         if (!hasAdditionalPart) {
-                return story;
+                const identityMap = new Map<string, string>();
+
+                story.passages.forEach(passage => {
+                        identityMap.set(passage.id, passage.id);
+                });
+
+                identityMap.set(story.startPassage, story.startPassage);
+
+                return {
+                        story,
+                        passageIdMap: identityMap
+                };
         }
 
         const combinedPassages: Passage[] = [];
@@ -285,7 +315,7 @@ export function prepareStoryForPublishing(story: Story, allStories: Story[]): St
 
         const startPassage = idMap.get(story.startPassage) ?? story.startPassage;
 
-        return {
+        const combinedStory: Story = {
                 ...story,
                 name: folderName,
                 passages: combinedPassages,
@@ -294,5 +324,10 @@ export function prepareStoryForPublishing(story: Story, allStories: Story[]): St
                 stylesheet: combinedStylesheet,
                 tags: combinedTags,
                 tagColors: combinedTagColors
+        };
+
+        return {
+                story: combinedStory,
+                passageIdMap: idMap
         };
 }

@@ -59,7 +59,10 @@ export function usePublishing(): UsePublishingProps {
 					throw new Error(`Couldn't load story format properties`);
 				}
 
-                                const storyToPublish = prepareStoryForPublishing(story, stories);
+                                const {story: storyToPublish} = prepareStoryForPublishing(
+                                        story,
+                                        stories
+                                );
 
                                 return publishStoryWithFormat(
                                         storyToPublish,
@@ -91,13 +94,25 @@ export function usePublishing(): UsePublishingProps {
 					throw new Error(`Couldn't load story format properties`);
 				}
 
-                                const storyToPublish = prepareStoryForPublishing(story, stories);
+                                const {story: storyToPublish, passageIdMap} =
+                                        prepareStoryForPublishing(story, stories);
+
+                                const mappedOptions = publishOptions
+                                        ? {
+                                                  ...publishOptions,
+                                                  startId: publishOptions.startId
+                                                          ? passageIdMap.get(
+                                                                        publishOptions.startId
+                                                                ) ?? publishOptions.startId
+                                                          : publishOptions.startId
+                                          }
+                                        : undefined;
 
                                 return publishStoryWithFormat(
                                         storyToPublish,
                                         formatProperties.source,
                                         getAppInfo(),
-                                        publishOptions
+                                        mappedOptions
                                 );
 			},
 			[formats, stories, storyFormatsDispatch]
@@ -105,7 +120,10 @@ export function usePublishing(): UsePublishingProps {
 		publishStoryData: React.useCallback(
 			(storyId: string) => {
                                 const story = storyWithId(stories, storyId);
-                                const storyToPublish = prepareStoryForPublishing(story, stories);
+                                const {story: storyToPublish} = prepareStoryForPublishing(
+                                        story,
+                                        stories
+                                );
 
                                 return publishStory(storyToPublish, getAppInfo(), {startOptional: true});
                         },
