@@ -378,6 +378,16 @@ export function processLinksWithPrefix(
 ): string {
         let processedText = text;
 
+        const canonicaliseStoryPart = (identifier: string): string => {
+                const trimmed = identifier.trim();
+
+                if (!storyPartAliases || storyPartAliases.size === 0) {
+                        return trimmed;
+                }
+
+                return storyPartAliases.get(trimmed.toLowerCase()) ?? trimmed;
+        };
+
         const canonicaliseTarget = (target: string): string => {
                 const trimmedTarget = target.trim();
                 const colonIndex = trimmedTarget.indexOf(':');
@@ -393,19 +403,33 @@ export function processLinksWithPrefix(
                         return trimmedTarget;
                 }
 
-                if (!storyPartAliases || storyPartAliases.size === 0) {
-                        return `${potentialStoryPart}:${remainder}`;
-                }
-
-                const canonicalStoryPart = storyPartAliases.get(
-                        potentialStoryPart.toLowerCase()
-                );
-
-                if (!canonicalStoryPart) {
-                        return `${potentialStoryPart}:${remainder}`;
-                }
+                const canonicalStoryPart = canonicaliseStoryPart(potentialStoryPart);
 
                 return `${canonicalStoryPart}:${remainder}`;
+        };
+
+        const inferStoryPartFromDisplay = (
+                display: string,
+                expectedPassage: string
+        ): string | undefined => {
+                const colonIndex = display.indexOf(':');
+
+                if (colonIndex === -1) {
+                        return undefined;
+                }
+
+                const potentialStoryPart = display.slice(0, colonIndex).trim();
+                const remainder = display.slice(colonIndex + 1).trim();
+
+                if (
+                        !potentialStoryPart ||
+                        !remainder ||
+                        remainder.toLowerCase() !== expectedPassage.toLowerCase()
+                ) {
+                        return undefined;
+                }
+
+                return canonicaliseStoryPart(potentialStoryPart);
         };
 
         // Normalise interlink/backlink shortcuts ([[->Target]] / [[Target<-]]) to
@@ -426,7 +450,7 @@ export function processLinksWithPrefix(
                         const trimmedDisplay = displayText?.trim();
 
                         return trimmedDisplay
-                                ? `[[${normalisedTarget}|${trimmedDisplay}]]`
+                                ? `[[${trimmedDisplay}|${normalisedTarget}]]`
                                 : `[[${normalisedTarget}]]`;
                 }
         );
@@ -446,32 +470,69 @@ export function processLinksWithPrefix(
         };
 
         // Then process regular Twine links [[link]] and [[link|text]]
-        const linkPattern = /\[\[([^<>\]]+)(?:\|([^\]]+))?\]\]/g;
+        const linkPattern = /\[\[([^|<>\]]+)(?:\|([^\]]+))?\]\]/g;
 
         processedText = processedText.replace(
                 linkPattern,
-                (match, link, displayText) => {
-                        const trimmedLink = link.trim();
-                        const redirectTarget = redirects?.get(normaliseKey(trimmedLink));
-                        const resolvedTarget = redirectTarget
-                                ? canonicaliseTarget(redirectTarget)
-                                : trimmedLink;
+                (match, rawLeft, rawRight) => {
+                        let target = rawLeft.trim();
+                        let display = rawRight?.trim();
 
-                        if (!redirectTarget && trimmedLink.includes(':')) {
-                                return `[[${canonicaliseTarget(trimmedLink)}${
-                                        displayText ? `|${displayText}` : ''
-                                }]]`;
+                        if (!display) {
+                                const forwardIndex = target.indexOf('->');
+                                const backwardIndex = target.indexOf('<-');
+
+                                if (
+                                        forwardIndex !== -1 &&
+                                        (backwardIndex === -1 || forwardIndex < backwardIndex)
+                                ) {
+                                        const potentialDisplay = target.slice(0, forwardIndex).trim();
+                                        const potentialTarget = target.slice(forwardIndex + 2).trim();
+
+                                        target = potentialTarget;
+                                        display = potentialDisplay || undefined;
+                                } else if (backwardIndex !== -1) {
+                                        const potentialTarget = target.slice(0, backwardIndex).trim();
+                                        const potentialDisplay = target.slice(backwardIndex + 2).trim();
+
+                                        target = potentialTarget;
+                                        display = potentialDisplay || undefined;
+                                }
                         }
 
-                        const linkTarget = redirectTarget
-                                ? resolvedTarget
-                                : `${storyPartName}:${resolvedTarget}`;
+                        if (!target || target === '') {
+                                return match;
+                        }
 
-                        if (displayText) {
-                                return `[[${linkTarget}|${displayText}]]`;
+                        const redirectTarget = redirects?.get(normaliseKey(target));
+
+                        let resolvedTarget: string;
+
+                        if (redirectTarget) {
+                                resolvedTarget = canonicaliseTarget(redirectTarget);
+                        } else if (target.includes(':')) {
+                                resolvedTarget = canonicaliseTarget(target);
                         } else {
-                                return `[[${linkTarget}]]`;
+                                const inferredStoryPart = display
+                                        ? inferStoryPartFromDisplay(display, target)
+                                        : undefined;
+                                const storyPart = inferredStoryPart ?? storyPartName;
+
+                                resolvedTarget = `${storyPart}:${target}`;
                         }
+
+                        const trimmedDisplay = display?.trim() ?? '';
+                        const normalisedTarget = target.trim();
+
+                        if (
+                                trimmedDisplay === '' ||
+                                trimmedDisplay.toLowerCase() === resolvedTarget.toLowerCase() ||
+                                trimmedDisplay.toLowerCase() === normalisedTarget.toLowerCase()
+                        ) {
+                                return `[[${resolvedTarget}]]`;
+                        }
+
+                        return `[[${trimmedDisplay}|${resolvedTarget}]]`;
                 }
         );
 

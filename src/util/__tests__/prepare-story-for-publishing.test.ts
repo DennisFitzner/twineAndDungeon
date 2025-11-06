@@ -260,6 +260,6 @@ describe('prepareStoryForPublishing', () => {
 
                 const startPassage = combined.passages.find(p => p.name === 'PartA:Start');
                 expect(startPassage?.text).toContain('[[Test234:Continue]]');
-                expect(startPassage?.text).toContain('[[Test234:Continue|Go forward]]');
+                expect(startPassage?.text).toContain('[[Go forward|Test234:Continue]]');
         });
 });
