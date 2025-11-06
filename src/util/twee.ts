@@ -370,7 +370,10 @@ function passageToTweeWithPrefix(
  * Processes passage text to add story part prefixes to links and remove backlinks/interlinks.
  * Only processes regular Twine links ([[link]] and [[link|text]]), completely removes backlinks and interlinks.
  */
-function processLinksWithPrefix(text: string, storyPartName: string): string {
+export function processLinksWithPrefix(
+        text: string,
+        storyPartName: string
+): string {
 	// First, remove all backlinks and interlinks completely
 	let processedText = text
 		.replace(/\[\[<-[^\]]+\]\]/g, '') // Remove backlinks [[<-link]]

@@ -13,6 +13,7 @@ import {
 } from './story-formats';
 import {storyWithId, useStoriesContext} from './stories';
 import {getAppInfo} from '../util/app-info';
+import {prepareStoryForPublishing} from '../util/prepare-story-for-publishing';
 
 export interface UsePublishingProps {
 	proofStory: (storyId: string) => Promise<string>;
@@ -58,11 +59,13 @@ export function usePublishing(): UsePublishingProps {
 					throw new Error(`Couldn't load story format properties`);
 				}
 
-				return publishStoryWithFormat(
-					story,
-					formatProperties.source,
-					getAppInfo()
-				);
+                                const storyToPublish = prepareStoryForPublishing(story, stories);
+
+                                return publishStoryWithFormat(
+                                        storyToPublish,
+                                        formatProperties.source,
+                                        getAppInfo()
+                                );
 			},
 			[
 				formats,
@@ -88,22 +91,25 @@ export function usePublishing(): UsePublishingProps {
 					throw new Error(`Couldn't load story format properties`);
 				}
 
-				return publishStoryWithFormat(
-					story,
-					formatProperties.source,
-					getAppInfo(),
-					publishOptions
-				);
+                                const storyToPublish = prepareStoryForPublishing(story, stories);
+
+                                return publishStoryWithFormat(
+                                        storyToPublish,
+                                        formatProperties.source,
+                                        getAppInfo(),
+                                        publishOptions
+                                );
 			},
 			[formats, stories, storyFormatsDispatch]
 		),
 		publishStoryData: React.useCallback(
 			(storyId: string) => {
-				const story = storyWithId(stories, storyId);
+                                const story = storyWithId(stories, storyId);
+                                const storyToPublish = prepareStoryForPublishing(story, stories);
 
-				return publishStory(story, getAppInfo(), {startOptional: true});
-			},
-			[stories]
-		)
+                                return publishStory(storyToPublish, getAppInfo(), {startOptional: true});
+                        },
+                        [stories]
+                )
 	};
 }
