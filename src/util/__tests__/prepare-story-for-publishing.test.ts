@@ -77,7 +77,8 @@ describe('prepareStoryForPublishing', () => {
                                 id: 'start-a',
                                 name: 'Start',
                                 story: partA.id,
-                                text: 'Go to [[Next]] and [[PartB:Intro]]'
+                                text:
+                                        'Go to [[Next]] and [[PartB:Intro]] via [[→ PartB:Intro]]'
                         }),
                         createPassage({
                                 id: 'next-a',
@@ -89,7 +90,11 @@ describe('prepareStoryForPublishing', () => {
                                 id: 'link-card',
                                 name: '→ PartB:Intro',
                                 story: partA.id,
-                                tags: ['interlink'],
+                                tags: [
+                                        'interlink',
+                                        'target-story-name:Part B',
+                                        'target-passage-name:Intro'
+                                ],
                                 text: ''
                         })
                 ];
@@ -99,13 +104,18 @@ describe('prepareStoryForPublishing', () => {
                                 id: 'intro-b',
                                 name: 'Intro',
                                 story: partB.id,
-                                text: 'Meet again [[PartA:Start]]'
+                                text: 'Meet again [[PartA:Start]] or [[← Start]]'
                         }),
                         createPassage({
                                 id: 'back-card',
                                 name: '← Start',
                                 story: partB.id,
-                                tags: ['backlink', 'source-story-ifid:IFID-A'],
+                                tags: [
+                                        'backlink',
+                                        'source-story-ifid:IFID-A',
+                                        'source-story-name:Part A',
+                                        'source-passage-name:Start'
+                                ],
                                 text: 'Back-reference from PartA:Start'
                         })
                 ];
@@ -121,6 +131,7 @@ describe('prepareStoryForPublishing', () => {
                 const startPassage = combined.passages.find(p => p.name === 'PartA:Start');
                 expect(startPassage?.text).toContain('[[PartA:Next]]');
                 expect(startPassage?.text).toContain('[[PartB:Intro]]');
+                expect(startPassage?.text).not.toContain('→ PartB:Intro');
 
                 expect(
                         combined.passages.every(
@@ -198,5 +209,6 @@ describe('prepareStoryForPublishing', () => {
 
                 const introPassage = combined.passages.find(p => p.name === 'PartB:Intro');
                 expect(introPassage?.text).toContain('[[PartA:Start]]');
+                expect(introPassage?.text).not.toContain('← Start');
         });
 });

@@ -3,12 +3,40 @@ import {processLinksWithPrefix} from './twee';
 
 const CROSS_LINK_TAGS = new Set(['interlink', 'backlink']);
 
+type TagMap = Map<string, string>;
+
+function normaliseCrossLinkKey(value: string): string {
+        const trimmed = value.trim();
+
+        if (trimmed.startsWith('→')) {
+                return `→ ${trimmed.slice(1).trim()}`;
+        }
+
+        if (trimmed.startsWith('←')) {
+                return `← ${trimmed.slice(1).trim()}`;
+        }
+
+        return trimmed;
+}
+
 function isCrossLinkCard(passage: Passage): boolean {
         return (
                 passage.tags.some(tag => CROSS_LINK_TAGS.has(tag)) ||
                 passage.name.startsWith('→ ') ||
                 passage.name.startsWith('← ')
         );
+}
+
+function createTagMap(tags: string[]): TagMap {
+        return tags.reduce<TagMap>((map, tag) => {
+                const [key, ...rest] = tag.split(':');
+
+                if (key && rest.length > 0) {
+                        map.set(key, rest.join(':').trim());
+                }
+
+                return map;
+        }, new Map());
 }
 
 function sanitiseTags(tags: string[]): string[] {
@@ -29,6 +57,152 @@ function sanitiseTags(tags: string[]): string[] {
 function storyPartIdentifier(part: Story): string {
         const identifier = part.partName || part.name;
         return identifier.trim();
+}
+
+function findRelatedStory(
+        stories: Story[],
+        identifier?: string
+): Story | undefined {
+        if (!identifier) {
+                return undefined;
+        }
+
+        const trimmed = identifier.trim();
+        const lower = trimmed.toLowerCase();
+
+        return (
+                stories.find(candidate => candidate.ifid === trimmed) ||
+                stories.find(candidate => storyPartIdentifier(candidate) === trimmed) ||
+                stories.find(candidate => storyPartIdentifier(candidate).toLowerCase() === lower) ||
+                stories.find(candidate => (candidate.partName || '').trim() === trimmed) ||
+                stories.find(candidate => (candidate.partName || '').trim().toLowerCase() === lower) ||
+                stories.find(candidate => candidate.name.trim() === trimmed) ||
+                stories.find(candidate => candidate.name.trim().toLowerCase() === lower)
+        );
+}
+
+function extractInterlinkTarget(
+        passage: Passage,
+        relatedStories: Story[],
+        tags: TagMap
+): string | undefined {
+        const tagTargetIdentifier =
+                tags.get('target-story-ifid') || tags.get('target-story-name');
+        let targetStory = findRelatedStory(relatedStories, tagTargetIdentifier);
+        let targetPassage = tags.get('target-passage-name')?.trim();
+
+        const rawName = passage.name.replace(/^→ /, '').trim();
+        if (rawName) {
+                const colonIndex = rawName.indexOf(':');
+
+                if (colonIndex !== -1) {
+                        const potentialStoryIdentifier = rawName.slice(0, colonIndex).trim();
+                        const potentialPassage = rawName.slice(colonIndex + 1).trim();
+
+                        if (!targetStory) {
+                                targetStory = findRelatedStory(
+                                        relatedStories,
+                                        potentialStoryIdentifier
+                                );
+                        }
+
+                        if (!targetPassage) {
+                                targetPassage = potentialPassage;
+                        }
+                } else if (!targetPassage) {
+                        targetPassage = rawName;
+                }
+        }
+
+        if (!targetStory) {
+                const sourceIdentifier =
+                        tags.get('source-story-ifid') || tags.get('source-story-name');
+                targetStory = findRelatedStory(relatedStories, sourceIdentifier);
+        }
+
+        if (!targetStory || !targetPassage) {
+                return undefined;
+        }
+
+        return `${storyPartIdentifier(targetStory)}:${targetPassage}`;
+}
+
+function extractBacklinkTarget(
+        passage: Passage,
+        relatedStories: Story[],
+        tags: TagMap
+): string | undefined {
+        const sourceIdentifier =
+                tags.get('source-story-ifid') || tags.get('source-story-name');
+        let targetStory = findRelatedStory(relatedStories, sourceIdentifier);
+        let targetPassage = tags.get('source-passage-name')?.trim();
+
+        const rawName = passage.name.replace(/^← /, '').trim();
+        if (rawName) {
+                const colonIndex = rawName.indexOf(':');
+
+                if (colonIndex !== -1) {
+                        const potentialStoryIdentifier = rawName.slice(0, colonIndex).trim();
+                        const potentialPassage = rawName.slice(colonIndex + 1).trim();
+
+                        if (!targetStory) {
+                                targetStory = findRelatedStory(
+                                        relatedStories,
+                                        potentialStoryIdentifier
+                                );
+                        }
+
+                        if (!targetPassage) {
+                                targetPassage = potentialPassage;
+                        }
+                } else if (!targetPassage) {
+                        targetPassage = rawName;
+                }
+        }
+
+        if (!targetStory) {
+                const fallbackIdentifier =
+                        tags.get('target-story-ifid') || tags.get('target-story-name');
+                targetStory = findRelatedStory(relatedStories, fallbackIdentifier);
+        }
+
+        if (!targetStory || !targetPassage) {
+                return undefined;
+        }
+
+        return `${storyPartIdentifier(targetStory)}:${targetPassage}`;
+}
+
+function buildCrossLinkRedirects(
+        stories: Story[]
+): Map<string, string> {
+        const redirects = new Map<string, string>();
+
+        stories.forEach(part => {
+                part.passages.forEach(passage => {
+                        if (!isCrossLinkCard(passage)) {
+                                return;
+                        }
+
+                        const tags = createTagMap(passage.tags);
+
+                        let target: string | undefined;
+                        if (passage.tags.includes('interlink') || passage.name.startsWith('→ ')) {
+                                target = extractInterlinkTarget(passage, stories, tags);
+                        } else if (
+                                passage.tags.includes('backlink') ||
+                                passage.name.startsWith('← ')
+                        ) {
+                                target = extractBacklinkTarget(passage, stories, tags);
+                        }
+
+                        if (target) {
+                                redirects.set(normaliseCrossLinkKey(passage.name), target);
+                        }
+                });
+        });
+
+        return redirects;
 }
 
 /**
@@ -66,6 +240,7 @@ export function prepareStoryForPublishing(story: Story, allStories: Story[]): St
 
         const combinedPassages: Passage[] = [];
         const idMap = new Map<string, string>();
+        const redirects = buildCrossLinkRedirects(relatedStories);
 
         relatedStories.forEach(part => {
                 const prefix = storyPartIdentifier(part);
@@ -84,7 +259,7 @@ export function prepareStoryForPublishing(story: Story, allStories: Story[]): St
                                 story: story.id,
                                 name: `${prefix}:${passage.name}`,
                                 tags: sanitiseTags(passage.tags),
-                                text: processLinksWithPrefix(passage.text, prefix)
+                                text: processLinksWithPrefix(passage.text, prefix, redirects)
                         });
                 });
         });

@@ -372,7 +372,8 @@ function passageToTweeWithPrefix(
  */
 export function processLinksWithPrefix(
         text: string,
-        storyPartName: string
+        storyPartName: string,
+        redirects?: Map<string, string>
 ): string {
         let processedText = text;
 
@@ -399,28 +400,47 @@ export function processLinksWithPrefix(
                 }
         );
 
+        const normaliseKey = (value: string) => {
+                const trimmed = value.trim();
+
+                if (trimmed.startsWith('→')) {
+                        return `→ ${trimmed.slice(1).trim()}`;
+                }
+
+                if (trimmed.startsWith('←')) {
+                        return `← ${trimmed.slice(1).trim()}`;
+                }
+
+                return trimmed;
+        };
+
         // Then process regular Twine links [[link]] and [[link|text]]
         const linkPattern = /\[\[([^<>\]]+)(?:\|([^\]]+))?\]\]/g;
 
         processedText = processedText.replace(
                 linkPattern,
                 (match, link, displayText) => {
-			// Skip if link already has a colon (already prefixed)
-			if (link.includes(':')) {
-				return match;
-			}
+                        const trimmedLink = link.trim();
+                        const redirectTarget = redirects?.get(normaliseKey(trimmedLink));
+                        const resolvedTarget = redirectTarget ?? trimmedLink;
 
-			// Add story part prefix to the link
-			const prefixedLink = `${storyPartName}:${link}`;
-			if (displayText) {
-				return `[[${prefixedLink}|${displayText}]]`;
-			} else {
-				return `[[${prefixedLink}]]`;
-			}
-		}
-	);
+                        if (!redirectTarget && trimmedLink.includes(':')) {
+                                return match;
+                        }
 
-	return processedText;
+                        const linkTarget = redirectTarget
+                                ? resolvedTarget
+                                : `${storyPartName}:${resolvedTarget}`;
+
+                        if (displayText) {
+                                return `[[${linkTarget}|${displayText}]]`;
+                        } else {
+                                return `[[${linkTarget}]]`;
+                        }
+                }
+        );
+
+        return processedText;
 }
 
 /**
