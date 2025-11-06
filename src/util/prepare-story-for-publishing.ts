@@ -10,6 +10,8 @@ const CROSS_LINK_TAGS = new Set(['interlink', 'backlink']);
 
 type TagMap = Map<string, string>;
 
+type StoryPartAliasMap = Map<string, string>;
+
 function normaliseCrossLinkKey(value: string): string {
         const trimmed = value.trim();
 
@@ -42,6 +44,36 @@ function createTagMap(tags: string[]): TagMap {
 
                 return map;
         }, new Map());
+}
+
+function buildStoryPartAliasMap(stories: Story[]): StoryPartAliasMap {
+        const aliases: StoryPartAliasMap = new Map();
+
+        const registerAlias = (alias: string | undefined, canonical: string) => {
+                if (!alias) {
+                        return;
+                }
+
+                const trimmed = alias.trim();
+
+                if (trimmed === '') {
+                        return;
+                }
+
+                aliases.set(trimmed.toLowerCase(), canonical);
+        };
+
+        stories.forEach(part => {
+                const canonical = storyPartIdentifier(part);
+
+                registerAlias(canonical, canonical);
+                registerAlias(part.name, canonical);
+                registerAlias(part.partName, canonical);
+                registerAlias(part.ifid, canonical);
+                registerAlias(part.id, canonical);
+        });
+
+        return aliases;
 }
 
 function sanitiseTags(tags: string[]): string[] {
@@ -271,6 +303,7 @@ export function prepareStoryForPublishing(
         const combinedPassages: Passage[] = [];
         const idMap = new Map<string, string>();
         const redirects = buildCrossLinkRedirects(relatedStories);
+        const aliasMap = buildStoryPartAliasMap(relatedStories);
 
         relatedStories.forEach(part => {
                 const prefix = storyPartIdentifier(part);
@@ -289,7 +322,12 @@ export function prepareStoryForPublishing(
                                 story: story.id,
                                 name: `${prefix}:${passage.name}`,
                                 tags: sanitiseTags(passage.tags),
-                                text: processLinksWithPrefix(passage.text, prefix, redirects)
+                                text: processLinksWithPrefix(
+                                        passage.text,
+                                        prefix,
+                                        redirects,
+                                        aliasMap
+                                )
                         });
                 });
         });

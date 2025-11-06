@@ -373,9 +373,40 @@ function passageToTweeWithPrefix(
 export function processLinksWithPrefix(
         text: string,
         storyPartName: string,
-        redirects?: Map<string, string>
+        redirects?: Map<string, string>,
+        storyPartAliases?: Map<string, string>
 ): string {
         let processedText = text;
+
+        const canonicaliseTarget = (target: string): string => {
+                const trimmedTarget = target.trim();
+                const colonIndex = trimmedTarget.indexOf(':');
+
+                if (colonIndex === -1) {
+                        return trimmedTarget;
+                }
+
+                const potentialStoryPart = trimmedTarget.slice(0, colonIndex).trim();
+                const remainder = trimmedTarget.slice(colonIndex + 1).trim();
+
+                if (!potentialStoryPart || !remainder) {
+                        return trimmedTarget;
+                }
+
+                if (!storyPartAliases || storyPartAliases.size === 0) {
+                        return `${potentialStoryPart}:${remainder}`;
+                }
+
+                const canonicalStoryPart = storyPartAliases.get(
+                        potentialStoryPart.toLowerCase()
+                );
+
+                if (!canonicalStoryPart) {
+                        return `${potentialStoryPart}:${remainder}`;
+                }
+
+                return `${canonicalStoryPart}:${remainder}`;
+        };
 
         // Normalise interlink/backlink shortcuts ([[->Target]] / [[Target<-]]) to
         // standard Twine links so the passages they point to remain reachable.
@@ -390,7 +421,7 @@ export function processLinksWithPrefix(
 
                         const trimmedTarget = target.trim();
                         const normalisedTarget = trimmedTarget.includes(':')
-                                ? trimmedTarget
+                                ? canonicaliseTarget(trimmedTarget)
                                 : `${storyPartName}:${trimmedTarget}`;
                         const trimmedDisplay = displayText?.trim();
 
@@ -422,10 +453,14 @@ export function processLinksWithPrefix(
                 (match, link, displayText) => {
                         const trimmedLink = link.trim();
                         const redirectTarget = redirects?.get(normaliseKey(trimmedLink));
-                        const resolvedTarget = redirectTarget ?? trimmedLink;
+                        const resolvedTarget = redirectTarget
+                                ? canonicaliseTarget(redirectTarget)
+                                : trimmedLink;
 
                         if (!redirectTarget && trimmedLink.includes(':')) {
-                                return match;
+                                return `[[${canonicaliseTarget(trimmedLink)}${
+                                        displayText ? `|${displayText}` : ''
+                                }]]`;
                         }
 
                         const linkTarget = redirectTarget

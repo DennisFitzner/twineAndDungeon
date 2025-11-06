@@ -219,4 +219,47 @@ describe('prepareStoryForPublishing', () => {
                 expect(introPassage?.text).toContain('[[PartA:Start]]');
                 expect(introPassage?.text).not.toContain('← Start');
         });
+
+        it('normalises colon links to the canonical story part identifiers', () => {
+                const partA = createStory({
+                        id: 'part-a',
+                        name: 'Part A',
+                        partName: 'PartA',
+                        storyFolderName: 'Saga',
+                        startPassage: 'start'
+                });
+
+                const partB = createStory({
+                        id: 'part-b',
+                        name: 'Part B',
+                        partName: 'Test234',
+                        storyFolderName: 'Saga',
+                        startPassage: 'continue'
+                });
+
+                partA.passages = [
+                        createPassage({
+                                id: 'start',
+                                name: 'Start',
+                                story: partA.id,
+                                text:
+                                        'Link to [[test234:Continue]] and [[TEST234:Continue|Go forward]]'
+                        })
+                ];
+
+                partB.passages = [
+                        createPassage({
+                                id: 'continue',
+                                name: 'Continue',
+                                story: partB.id,
+                                text: 'The next step'
+                        })
+                ];
+
+                const {story: combined} = prepareStoryForPublishing(partA, [partA, partB]);
+
+                const startPassage = combined.passages.find(p => p.name === 'PartA:Start');
+                expect(startPassage?.text).toContain('[[Test234:Continue]]');
+                expect(startPassage?.text).toContain('[[Test234:Continue|Go forward]]');
+        });
 });
