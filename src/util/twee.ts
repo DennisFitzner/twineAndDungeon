@@ -367,37 +367,176 @@ function passageToTweeWithPrefix(
 }
 
 /**
- * Processes passage text to add story part prefixes to links and remove backlinks/interlinks.
- * Only processes regular Twine links ([[link]] and [[link|text]]), completely removes backlinks and interlinks.
+ * Processes passage text to add story part prefixes to links and normalise
+ * backlink/interlink shortcuts so they resolve straight to their targets.
  */
-function processLinksWithPrefix(text: string, storyPartName: string): string {
-	// First, remove all backlinks and interlinks completely
-	let processedText = text
-		.replace(/\[\[<-[^\]]+\]\]/g, '') // Remove backlinks [[<-link]]
-		.replace(/\[\[->[^\]]+\]\]/g, ''); // Remove interlinks [[->link]]
+export function processLinksWithPrefix(
+        text: string,
+        storyPartName: string,
+        redirects?: Map<string, string>,
+        storyPartAliases?: Map<string, string>
+): string {
+        let processedText = text;
 
-	// Then process regular Twine links [[link]] and [[link|text]]
-	const linkPattern = /\[\[([^<>\]]+)(?:\|([^\]]+))?\]\]/g;
+        const canonicaliseStoryPart = (identifier: string): string => {
+                const trimmed = identifier.trim();
 
-	processedText = processedText.replace(
-		linkPattern,
-		(match, link, displayText) => {
-			// Skip if link already has a colon (already prefixed)
-			if (link.includes(':')) {
-				return match;
-			}
+                if (!storyPartAliases || storyPartAliases.size === 0) {
+                        return trimmed;
+                }
 
-			// Add story part prefix to the link
-			const prefixedLink = `${storyPartName}:${link}`;
-			if (displayText) {
-				return `[[${prefixedLink}|${displayText}]]`;
-			} else {
-				return `[[${prefixedLink}]]`;
-			}
-		}
-	);
+                return storyPartAliases.get(trimmed.toLowerCase()) ?? trimmed;
+        };
 
-	return processedText;
+        const canonicaliseTarget = (target: string): string => {
+                const trimmedTarget = target.trim();
+                const colonIndex = trimmedTarget.indexOf(':');
+
+                if (colonIndex === -1) {
+                        return trimmedTarget;
+                }
+
+                const potentialStoryPart = trimmedTarget.slice(0, colonIndex).trim();
+                const remainder = trimmedTarget.slice(colonIndex + 1).trim();
+
+                if (!potentialStoryPart || !remainder) {
+                        return trimmedTarget;
+                }
+
+                const canonicalStoryPart = canonicaliseStoryPart(potentialStoryPart);
+
+                return `${canonicalStoryPart}:${remainder}`;
+        };
+
+        const inferStoryPartFromDisplay = (
+                display: string,
+                expectedPassage: string
+        ): string | undefined => {
+                const colonIndex = display.indexOf(':');
+
+                if (colonIndex === -1) {
+                        return undefined;
+                }
+
+                const potentialStoryPart = display.slice(0, colonIndex).trim();
+                const remainder = display.slice(colonIndex + 1).trim();
+
+                if (
+                        !potentialStoryPart ||
+                        !remainder ||
+                        remainder.toLowerCase() !== expectedPassage.toLowerCase()
+                ) {
+                        return undefined;
+                }
+
+                return canonicaliseStoryPart(potentialStoryPart);
+        };
+
+        // Normalise interlink/backlink shortcuts ([[->Target]] / [[Target<-]]) to
+        // standard Twine links so the passages they point to remain reachable.
+        const crossLinkPattern = /\[\[\s*(->)?\s*([^|\]]+?)\s*(<-)?(?:\|([^\]]+))?\s*\]\]/g;
+
+        processedText = processedText.replace(
+                crossLinkPattern,
+                (match, leadingArrow, target, trailingArrow, displayText) => {
+                        if (!leadingArrow && !trailingArrow) {
+                                return match;
+                        }
+
+                        const trimmedTarget = target.trim();
+                        const normalisedTarget = trimmedTarget.includes(':')
+                                ? canonicaliseTarget(trimmedTarget)
+                                : `${storyPartName}:${trimmedTarget}`;
+                        const trimmedDisplay = displayText?.trim();
+
+                        return trimmedDisplay
+                                ? `[[${trimmedDisplay}|${normalisedTarget}]]`
+                                : `[[${normalisedTarget}]]`;
+                }
+        );
+
+        const normaliseKey = (value: string) => {
+                const trimmed = value.trim();
+
+                if (trimmed.startsWith('→')) {
+                        return `→ ${trimmed.slice(1).trim()}`;
+                }
+
+                if (trimmed.startsWith('←')) {
+                        return `← ${trimmed.slice(1).trim()}`;
+                }
+
+                return trimmed;
+        };
+
+        // Then process regular Twine links [[link]] and [[link|text]]
+        const linkPattern = /\[\[([^|<>\]]+)(?:\|([^\]]+))?\]\]/g;
+
+        processedText = processedText.replace(
+                linkPattern,
+                (match, rawLeft, rawRight) => {
+                        let target = rawLeft.trim();
+                        let display = rawRight?.trim();
+
+                        if (!display) {
+                                const forwardIndex = target.indexOf('->');
+                                const backwardIndex = target.indexOf('<-');
+
+                                if (
+                                        forwardIndex !== -1 &&
+                                        (backwardIndex === -1 || forwardIndex < backwardIndex)
+                                ) {
+                                        const potentialDisplay = target.slice(0, forwardIndex).trim();
+                                        const potentialTarget = target.slice(forwardIndex + 2).trim();
+
+                                        target = potentialTarget;
+                                        display = potentialDisplay || undefined;
+                                } else if (backwardIndex !== -1) {
+                                        const potentialTarget = target.slice(0, backwardIndex).trim();
+                                        const potentialDisplay = target.slice(backwardIndex + 2).trim();
+
+                                        target = potentialTarget;
+                                        display = potentialDisplay || undefined;
+                                }
+                        }
+
+                        if (!target || target === '') {
+                                return match;
+                        }
+
+                        const redirectTarget = redirects?.get(normaliseKey(target));
+
+                        let resolvedTarget: string;
+
+                        if (redirectTarget) {
+                                resolvedTarget = canonicaliseTarget(redirectTarget);
+                        } else if (target.includes(':')) {
+                                resolvedTarget = canonicaliseTarget(target);
+                        } else {
+                                const inferredStoryPart = display
+                                        ? inferStoryPartFromDisplay(display, target)
+                                        : undefined;
+                                const storyPart = inferredStoryPart ?? storyPartName;
+
+                                resolvedTarget = `${storyPart}:${target}`;
+                        }
+
+                        const trimmedDisplay = display?.trim() ?? '';
+                        const normalisedTarget = target.trim();
+
+                        if (
+                                trimmedDisplay === '' ||
+                                trimmedDisplay.toLowerCase() === resolvedTarget.toLowerCase() ||
+                                trimmedDisplay.toLowerCase() === normalisedTarget.toLowerCase()
+                        ) {
+                                return `[[${resolvedTarget}]]`;
+                        }
+
+                        return `[[${trimmedDisplay}|${resolvedTarget}]]`;
+                }
+        );
+
+        return processedText;
 }
 
 /**
