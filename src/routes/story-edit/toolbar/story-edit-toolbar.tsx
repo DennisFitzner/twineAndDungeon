@@ -76,8 +76,10 @@ export const StoryEditToolbar: React.FC<StoryEditToolbarProps> = props => {
                                                         onClosePart={onClosePart || (() => {})}
                                                         onCreatePart={
                                                                 onCreatePart ||
-                                                                ((_partName: string) => {})
-                                                        } // eslint-disable-line @typescript-eslint/no-unused-vars
+                                                                ((partName: string) => {
+                                                                        void partName;
+                                                                })
+                                                        }
                                                 />
                                                 <StoryPartCharacterSelector story={story} />
                                         </div>

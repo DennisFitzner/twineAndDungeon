@@ -14,6 +14,7 @@ import {
         CreatePassageButtonProps,
         prepareCreatePassageAction
 } from '../create-passage-button';
+import type {TwineElectronWindow} from '../../../../../electron/shared/electron-shared.types';
 
 describe('<CreatePassageButton>', () => {
 	function renderComponent(
@@ -86,5 +87,75 @@ describe('<CreatePassageButton>', () => {
                 const action = prepareCreatePassageAction(story, 10, 10, 'alice');
 
                 expect(action.props.tags).toEqual(['characters:alice']);
+        });
+
+        describe('electron shortcuts', () => {
+                let originalTwineElectron: TwineElectronWindow['twineElectron'];
+                function mockElectron(onCreatePassageShortcut: jest.Mock) {
+                        (window as TwineElectronWindow).twineElectron = {
+                                onCreatePassageShortcut
+                        } as unknown as TwineElectronWindow['twineElectron'];
+                }
+
+                beforeEach(() => {
+                        originalTwineElectron = (window as TwineElectronWindow).twineElectron;
+                });
+
+                afterEach(() => {
+                        (window as TwineElectronWindow).twineElectron = originalTwineElectron;
+                });
+
+                it('creates a new passage when the accelerator fires without a character index', () => {
+                        const story = fakeStory(0);
+                        const format = fakeLoadedStoryFormat();
+                        story.storyFormat = format.name;
+                        story.storyFormatVersion = format.version;
+
+                        const onCreatePassageShortcut = jest.fn().mockReturnValue(jest.fn());
+                        mockElectron(onCreatePassageShortcut);
+
+                        renderComponent({story}, {stories: [story], storyFormats: [format]});
+
+                        expect(onCreatePassageShortcut).toHaveBeenCalledTimes(1);
+
+                        const handler = onCreatePassageShortcut.mock.calls[0][0];
+                        handler();
+
+                        const passageDivs = screen
+                                .getByTestId('story-inspector-default')
+                                .querySelectorAll('div[data-testid^="passage"]');
+
+                        expect(passageDivs.length).toBe(1);
+                });
+
+                it('creates a character-tagged passage when the accelerator fires with an index', () => {
+                        const story = fakeStory(0);
+                        const format = fakeLoadedStoryFormat();
+
+                        story.characters = [
+                                {id: 'char-1', name: 'Character One'},
+                                {id: 'char-2', name: 'Character Two'}
+                        ];
+                        story.partCharacterIds = story.characters.map(character => character.id);
+                        story.storyFormat = format.name;
+                        story.storyFormatVersion = format.version;
+
+                        const onCreatePassageShortcut = jest.fn().mockReturnValue(jest.fn());
+                        mockElectron(onCreatePassageShortcut);
+
+                        renderComponent({story}, {stories: [story], storyFormats: [format]});
+
+                        const handler = onCreatePassageShortcut.mock.calls[0][0];
+                        handler(1);
+
+                        const passageDivs = screen
+                                .getByTestId('story-inspector-default')
+                                .querySelectorAll('div[data-testid^="passage"]');
+
+                        expect(passageDivs.length).toBe(1);
+                        expect((passageDivs[0] as HTMLElement).dataset.tags).toBe(
+                                'characters:char-2'
+                        );
+                });
         });
 });
