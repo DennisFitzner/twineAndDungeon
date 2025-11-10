@@ -49,7 +49,7 @@ export const CreatePassageButton: React.FC<
 
         const partCharacters = React.useMemo(() => {
                 const storyCharacters = story.characters ?? [];
-
+          
                 if (story.partCharacterIds === undefined) {
                         return storyCharacters;
                 }
@@ -74,6 +74,7 @@ export const CreatePassageButton: React.FC<
                                 top,
                                 characterId
                         );
+
 
                         storiesDispatch(createAction, 'undoChange.newPassage');
 
@@ -139,6 +140,7 @@ export const CreatePassageButton: React.FC<
                                 event.preventDefault();
                         }
                 },
+
                 {enableOnTags: ['TEXTAREA', 'INPUT'], keyup: false, enabled: !isElectron},
                 [handleCharacterShortcut, isElectron]
         );
