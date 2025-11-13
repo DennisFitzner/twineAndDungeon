@@ -77,17 +77,26 @@
 }
 
 .passage-character-thumbnails {
-	display: flex;
-	flex-wrap: wrap;
-	gap: calc(var(--grid-size) / 2);
-	margin-bottom: calc(var(--grid-size) / 2);
+        --thumbnail-gap: calc(var(--grid-size) / 2);
+        --thumbnail-overlap: 0px;
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 0;
+        margin-bottom: calc(var(--grid-size) / 2);
 }
 
 .passage-character-thumbnail {
-	border-radius: 50%;
-	height: var(--character-icon-size, 20px);
-	object-fit: cover;
-	width: var(--character-icon-size, 20px);
+        border-radius: 50%;
+        height: var(--character-icon-size, 20px);
+        object-fit: cover;
+        width: var(--character-icon-size, 20px);
+}
+
+.passage-character-thumbnail + .passage-character-thumbnail {
+        margin-left: calc(
+                var(--thumbnail-gap, 0px) - var(--thumbnail-overlap, 0px)
+        );
 }
 
 .passage-card__resize-handle {
