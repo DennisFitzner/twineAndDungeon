@@ -5,7 +5,7 @@ import {DraggableCoreProps} from 'react-draggable';
 import {useTranslation} from 'react-i18next';
 import {CardContent} from '../container/card';
 import {SelectableCard} from '../container/card/selectable-card';
-import {Passage, TagColors, Story} from '../../store/stories';
+import {Character, Passage, TagColors, Story} from '../../store/stories';
 import {CharacterIconSizePref, usePrefsContext} from '../../store/prefs';
 import {TagStripe} from '../tag/tag-stripe';
 import {passageIsEmpty} from '../../util/passage-is-empty';
@@ -38,8 +38,146 @@ export interface PassageCardProps {
 // Needs to fill a large-sized passage card.
 const excerptLength = 400;
 
+interface PassageCharacterThumbnailsProps {
+        characters: Character[];
+}
+
+const PassageCharacterThumbnails: React.FC<PassageCharacterThumbnailsProps> = ({characters}) => {
+        const containerRef = React.useRef<HTMLDivElement>(null);
+
+        React.useLayoutEffect(() => {
+                const containerEl = containerRef.current;
+
+                if (!containerEl) {
+                        return;
+                }
+
+                const updateOverlap = () => {
+                        const element = containerRef.current;
+
+                        if (!element) {
+                                return;
+                        }
+
+                        const thumbnails = Array.from(element.children) as HTMLElement[];
+
+                        if (thumbnails.length <= 1) {
+                                element.style.setProperty('--thumbnail-overlap', '0px');
+                                return;
+                        }
+
+                        const containerWidth = element.clientWidth;
+
+                        if (containerWidth <= 0) {
+                                element.style.setProperty('--thumbnail-overlap', '0px');
+                                return;
+                        }
+
+                        const thumbnailWidth = thumbnails[0]?.getBoundingClientRect().width ?? 0;
+
+                        if (thumbnailWidth <= 0) {
+                                element.style.setProperty('--thumbnail-overlap', '0px');
+                                return;
+                        }
+
+                        const computedStyles = window.getComputedStyle(element);
+                        const currentOverlap =
+                                parseFloat(computedStyles.getPropertyValue('--thumbnail-overlap')) || 0;
+                        const totalGaps = thumbnails.length - 1;
+                        const gap =
+                                totalGaps > 0
+                                        ? Math.max(
+                                                  0,
+                                                  (parseFloat(
+                                                          window
+                                                                  .getComputedStyle(thumbnails[1])
+                                                                  .marginLeft
+                                                  ) || 0) + currentOverlap
+                                          )
+                                        : 0;
+                        const naturalWidth =
+                                thumbnailWidth * thumbnails.length + gap * Math.max(0, totalGaps);
+                        const widthExcess = naturalWidth - containerWidth;
+
+                        if (widthExcess <= 0 || totalGaps <= 0) {
+                                element.style.setProperty('--thumbnail-overlap', '0px');
+                                return;
+                        }
+
+                        const overlapPerGap = widthExcess / totalGaps;
+                        const maxOverlap = gap + thumbnailWidth;
+                        const requiredOverlap = Math.min(overlapPerGap, maxOverlap);
+
+                        element.style.setProperty('--thumbnail-overlap', `${requiredOverlap}px`);
+                };
+
+                updateOverlap();
+
+                if (typeof ResizeObserver === 'undefined') {
+                        return () => {
+                                containerEl.style.removeProperty('--thumbnail-overlap');
+                        };
+                }
+
+                const resizeObserver = new ResizeObserver(updateOverlap);
+                const observedElements = new Set<Element>();
+
+                const observeChildren = () => {
+                        Array.from(containerEl.children).forEach(child => {
+                                if (observedElements.has(child)) {
+                                        return;
+                                }
+
+                                resizeObserver.observe(child);
+                                observedElements.add(child);
+                        });
+                };
+
+                resizeObserver.observe(containerEl);
+                observedElements.add(containerEl);
+                observeChildren();
+
+                const listeners: Array<{element: HTMLImageElement; handler: () => void}> = [];
+
+                Array.from(containerEl.querySelectorAll('img')).forEach(img => {
+                        if (img.complete) {
+                                return;
+                        }
+
+                        const handler = () => updateOverlap();
+
+                        img.addEventListener('load', handler);
+                        img.addEventListener('error', handler);
+                        listeners.push({element: img, handler});
+                });
+
+                return () => {
+                        containerEl.style.removeProperty('--thumbnail-overlap');
+                        resizeObserver.disconnect();
+                        listeners.forEach(({element, handler}) => {
+                                element.removeEventListener('load', handler);
+                                element.removeEventListener('error', handler);
+                        });
+                };
+        }, [characters]);
+
+        return (
+                <div className="passage-character-thumbnails" ref={containerRef}>
+                        {characters.map(character => (
+                                <img
+                                        key={character.id}
+                                        alt={character.name}
+                                        className="passage-character-thumbnail"
+                                        src={character.image}
+                                        title={character.name}
+                                />
+                        ))}
+                </div>
+        );
+};
+
 export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
-	const {
+        const {
 		onDeselect,
 		onDrag,
 		onDragStart,
@@ -443,9 +581,26 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 					onStop: onDragStop
 			  };
 
-	return (
-		<DraggableCoreWrapper
-			nodeRef={container}
+        const assignedCharacters = React.useMemo<Character[]>(() => {
+                const characterTag = passage.tags.find(tag => tag.startsWith('characters:'));
+
+                if (!characterTag || !story.characters) {
+                        return [];
+                }
+
+                const characterIds = characterTag
+                        .replace('characters:', '')
+                        .split(',')
+                        .filter(id => id);
+
+                return characterIds
+                        .map(id => story.characters?.find(char => char.id === id))
+                        .filter((char): char is Character => char != null && char.image != null);
+        }, [passage.tags, story.characters]);
+
+        return (
+                <DraggableCoreWrapper
+                        nodeRef={container}
 			onMouseDown={handleMouseDown}
 			onStart={dragHandlers.onStart}
 			onDrag={dragHandlers.onDrag}
@@ -465,41 +620,10 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 					selected={passage.selected}
 				>
 					<TagStripe tagColors={tagColors} tags={passage.tags} />
-					{/* Character thumbnails */}
-					{(() => {
-						const characterTag = passage.tags.find(tag =>
-							tag.startsWith('characters:')
-						);
-						if (!characterTag || !story.characters) return null;
-
-						const characterIds = characterTag
-							.replace('characters:', '')
-							.split(',')
-							.filter(id => id);
-
-						const assignedCharacters = characterIds
-							.map(id => story.characters?.find(char => char.id === id))
-							.filter(
-								(char): char is NonNullable<typeof char> =>
-									char != null && char.image != null
-							);
-
-						if (assignedCharacters.length === 0) return null;
-
-						return (
-							<div className="passage-character-thumbnails">
-								{assignedCharacters.map(character => (
-									<img
-										key={character.id}
-										alt={character.name}
-										className="passage-character-thumbnail"
-										src={character.image}
-										title={character.name}
-									/>
-								))}
-							</div>
-						);
-					})()}
+                                        {/* Character thumbnails */}
+                                        {assignedCharacters.length > 0 && (
+                                                <PassageCharacterThumbnails characters={assignedCharacters} />
+                                        )}
 					{/* Show story part name for interlink and backlink cards */}
 					{(isInterlink || isBackReference) && storyPartName && (
 						<div className="story-part-name">{storyPartName}</div>

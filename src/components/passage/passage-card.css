@@ -77,6 +77,8 @@
 }
 
 .passage-character-thumbnails {
+        --thumbnail-gap: calc(var(--grid-size) / 2);
+        --thumbnail-overlap: 0px;
         display: flex;
         align-items: center;
         flex-wrap: nowrap;
@@ -92,7 +94,9 @@
 }
 
 .passage-character-thumbnail + .passage-character-thumbnail {
-        margin-left: calc(var(--character-icon-size, 20px) * -0.35);
+        margin-left: calc(
+                var(--thumbnail-gap, 0px) - var(--thumbnail-overlap, 0px)
+        );
 }
 
 .passage-card__resize-handle {
