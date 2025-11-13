@@ -78,7 +78,8 @@
 
 .passage-character-thumbnails {
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
+	align-items: flex-start;
 	gap: calc(var(--grid-size) / 2);
 	margin-bottom: calc(var(--grid-size) / 2);
 }
