@@ -142,11 +142,11 @@ export function reverseAction(
 				storyId: action.storyId
 			};
 
-		case 'updateStory': {
-			const story = storyWithId(state, action.storyId);
-			const props = Object.keys(action.props).reduce(
-				(result, propName) => ({
-					...result,
+                case 'updateStory': {
+                        const story = storyWithId(state, action.storyId);
+                        const props = Object.keys(action.props).reduce(
+                                (result, propName) => ({
+                                        ...result,
 					[propName]: story[propName as keyof Story]
 				}),
 				{} as Story
@@ -154,11 +154,39 @@ export function reverseAction(
 
 			return {
 				type: 'updateStory',
-				props,
-				storyId: action.storyId
-			};
-		}
-	}
+                                props,
+                                storyId: action.storyId
+                        };
+                }
+
+                case 'createStory':
+                        if (action.props.id) {
+                                return {type: 'deleteStory', storyId: action.props.id};
+                        }
+
+                        if (action.props.name) {
+                                return (dispatch, getState) => {
+                                        const createdStory = getState().find(
+                                                ({name}) => name === action.props.name
+                                        );
+
+                                        if (!createdStory) {
+                                                throw new Error(
+                                                        "Can't reverse a createStory action without an ID or resolvable name"
+                                                );
+                                        }
+
+                                        dispatch({type: 'deleteStory', storyId: createdStory.id});
+                                };
+                        }
+
+                        throw new Error(
+                                "Can't reverse a createStory action without either name or ID"
+                        );
+
+                case 'deleteStory':
+                        return {type: 'createStory', props: storyWithId(state, action.storyId)};
+        }
 
 	throw new Error(`Don't know how to reverse action type "${action.type}"`);
 }

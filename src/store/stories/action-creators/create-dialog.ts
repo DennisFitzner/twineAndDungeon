@@ -9,7 +9,7 @@ export function createDialog(
         story: Story,
         centerX: number,
         centerY: number
-): Thunk<StoriesState, StoriesAction | CreatePassageAction, string> {
+): Thunk<StoriesState, StoriesAction | CreatePassageAction> {
         return dispatch => {
                 const dialogStoryId = uuid();
                 const dialogIfid = uuid().toUpperCase();
