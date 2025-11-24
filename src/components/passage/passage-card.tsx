@@ -3,6 +3,7 @@ import {deviceType} from 'detect-it';
 import * as React from 'react';
 import {DraggableCoreProps} from 'react-draggable';
 import {useTranslation} from 'react-i18next';
+import {useHotkeys} from 'react-hotkeys-hook';
 import {CardContent} from '../container/card';
 import {SelectableCard} from '../container/card/selectable-card';
 import {Character, Passage, TagColors, Story} from '../../store/stories';
@@ -478,11 +479,11 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 
 		return {amount: 20, unit: 'px'};
 	}, [prefs.characterIconSize]);
-	const style = React.useMemo<React.CSSProperties>(
-		() => ({
-			height: appliedSize.height,
-			left: passage.left,
-			top: passage.top,
+        const style = React.useMemo<React.CSSProperties>(
+                () => ({
+                        height: appliedSize.height,
+                        left: passage.left,
+                        top: passage.top,
 			width: appliedSize.width,
 			...characterBorderStyle,
 			'--character-icon-size': `${Math.max(
@@ -496,16 +497,25 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 			passage.left,
 			passage.top,
 			characterBorderStyle,
-			characterIconSizePref.amount,
-			characterIconSizePref.unit
-		]
-	);
+                        characterIconSizePref.amount,
+                        characterIconSizePref.unit
+                ]
+        );
+        const [dialogNavShortcutActive, setDialogNavShortcutActive] = React.useState(false);
+
+        useHotkeys(
+                'meta,ctrl',
+                event => {
+                        setDialogNavShortcutActive(event.type === 'keydown');
+                },
+                {keyup: true}
+        );
         const handleMouseDown = React.useCallback(
                 (event: MouseEvent) => {
                         if (
                                 passage.isDialog &&
                                 passage.dialogStoryIfid &&
-                                (event.metaKey || event.ctrlKey)
+                                (dialogNavShortcutActive || event.metaKey || event.ctrlKey)
                         ) {
                                 emitNavigateTo(passage.dialogStoryIfid, undefined, {
                                         openEditor: false,
@@ -527,11 +537,11 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 					onSelect(passage, false);
 				}
 			} else if (!passage.selected) {
-				onSelect(passage, true);
-			}
-		},
-		[onDeselect, onSelect, passage]
-	);
+                                onSelect(passage, true);
+                        }
+                },
+                [dialogNavShortcutActive, onDeselect, onSelect, passage]
+        );
 	const handleEdit = React.useCallback(() => {
 		// For interlink passages, navigate to the correct tab instead of editing
 		if (isInterlink) {
