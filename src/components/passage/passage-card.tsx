@@ -500,12 +500,25 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 			characterIconSizePref.unit
 		]
 	);
-	const handleMouseDown = React.useCallback(
-		(event: MouseEvent) => {
-			// Shift- or control-clicking toggles our selected status, but doesn't
-			// affect any other passage's selected status. If the shift or control key
-			// was not held down and we were not already selected, we know the user
-			// wants to select only this passage.
+        const handleMouseDown = React.useCallback(
+                (event: MouseEvent) => {
+                        if (
+                                passage.isDialog &&
+                                passage.dialogStoryIfid &&
+                                (event.metaKey || event.ctrlKey)
+                        ) {
+                                emitNavigateTo(passage.dialogStoryIfid, undefined, {
+                                        openEditor: false,
+                                        fallbackPassageName: passage.name
+                                });
+                                event.preventDefault();
+                                return;
+                        }
+
+                        // Shift- or control-clicking toggles our selected status, but doesn't
+                        // affect any other passage's selected status. If the shift or control key
+                        // was not held down and we were not already selected, we know the user
+                        // wants to select only this passage.
 
 			if (event.shiftKey || event.ctrlKey) {
 				if (passage.selected) {
