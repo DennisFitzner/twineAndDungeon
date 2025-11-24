@@ -7,15 +7,20 @@ import {fakePassage, fakePrefs} from '../../../test-util';
 import {passageIsEmpty} from '../../../util/passage-is-empty';
 import {PassageCard, PassageCardProps} from '../passage-card';
 import {PrefsContext, PrefsState} from '../../../store/prefs';
+import {emitNavigateTo} from '../../../store/navigation-events';
 
 jest.mock('../../tag/tag-stripe');
 jest.mock('../../../util/passage-is-empty');
+jest.mock('../../../store/navigation-events', () => ({
+        emitNavigateTo: jest.fn()
+}));
 
 describe('<PassageCard>', () => {
-	const passageIsEmptyMock = passageIsEmpty as jest.Mock;
-	const oldDeviceType = detectIt.deviceType;
+        const passageIsEmptyMock = passageIsEmpty as jest.Mock;
+        const oldDeviceType = detectIt.deviceType;
 
-	beforeEach(() => passageIsEmptyMock.mockReturnValue(false));
+        beforeEach(() => (emitNavigateTo as jest.Mock).mockClear());
+        beforeEach(() => passageIsEmptyMock.mockReturnValue(false));
 
 	afterAll(() => {
 		(detectIt as any).deviceType = oldDeviceType;
@@ -209,20 +214,39 @@ describe('<PassageCard>', () => {
 		});
 	});
 
-	it('calls the onSelect prop with a nonexclusive argument when the card is clicked with the control key held and the passage is unselected', () => {
-		const onDeselect = jest.fn();
-		const onSelect = jest.fn();
-		const passage = fakePassage({selected: false});
+        it('calls the onSelect prop with a nonexclusive argument when the card is clicked with the control key held and the passage is unselected', () => {
+                const onDeselect = jest.fn();
+                const onSelect = jest.fn();
+                const passage = fakePassage({selected: false});
 
-		renderComponent({onDeselect, onSelect, passage});
-		expect(onDeselect).not.toHaveBeenCalled();
-		expect(onSelect).not.toHaveBeenCalled();
-		fireEvent.mouseDown(screen.getByText(passage.name), {ctrlKey: true});
-		expect(onDeselect).not.toHaveBeenCalled();
-		expect(onSelect.mock.calls).toEqual([[passage, false]]);
-	});
+                renderComponent({onDeselect, onSelect, passage});
+                expect(onDeselect).not.toHaveBeenCalled();
+                expect(onSelect).not.toHaveBeenCalled();
+                fireEvent.mouseDown(screen.getByText(passage.name), {ctrlKey: true});
+                expect(onDeselect).not.toHaveBeenCalled();
+                expect(onSelect.mock.calls).toEqual([[passage, false]]);
+        });
 
-	it.todo('passes through drag events');
+        it('navigates to the dialog story when command-clicking a dialog passage card', () => {
+                const passage = fakePassage({
+                        dialogStoryIfid: 'dialog-ifid',
+                        isDialog: true,
+                        name: 'Dialog summary',
+                        selected: false,
+                        story: 'test-story'
+                });
+
+                renderComponent({passage});
+
+                fireEvent.mouseDown(screen.getByText(passage.name), {metaKey: true});
+
+                expect(emitNavigateTo).toHaveBeenCalledWith('dialog-ifid', undefined, {
+                        fallbackPassageName: passage.name,
+                        openEditor: false
+                });
+        });
+
+        it.todo('passes through drag events');
 
 	it('is accessible', async () => {
 		const {container} = renderComponent();

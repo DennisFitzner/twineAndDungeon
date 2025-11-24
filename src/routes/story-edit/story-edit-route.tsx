@@ -291,25 +291,28 @@ export const InnerStoryEditRoute: React.FC = () => {
 
 	// Cross-part navigation subscription
 	React.useEffect(() => {
-		const unsubscribe = onNavigateTo(
-			async (targetPartId, targetPassageId, options) => {
-				// Handle both story IDs and story part names
-				let targetStory;
-				if (targetPartId) {
-					// Try to find by ID first in storyParts
-					targetStory = storyParts.find(p => p.id === targetPartId);
-					if (!targetStory) {
-						// If not found by ID, try to find by part name in storyParts
-						targetStory = storyParts.find(
-							p =>
-								(p.partName || p.name).toLowerCase() ===
-								targetPartId.toLowerCase()
-						);
-					}
+                const unsubscribe = onNavigateTo(
+                        async (targetPartId, targetPassageId, options) => {
+                                // Handle both story IDs and story part names
+                                let targetStory;
+                                if (targetPartId) {
+                                        const targetLower = targetPartId.toLowerCase();
 
-					// If still not found, try to load the story part from file system
-					if (!targetStory) {
-						try {
+                                        // Try to find by ID first in storyParts
+                                        targetStory =
+                                                storyParts.find(p => p.id === targetPartId) ||
+                                                storyParts.find(
+                                                        p => p.ifid && p.ifid.toLowerCase() === targetLower
+                                                ) ||
+                                                storyParts.find(
+                                                        p =>
+                                                                (p.partName || p.name).toLowerCase() ===
+                                                                targetLower
+                                                );
+
+                                        // If still not found, try to load the story part from file system
+                                        if (!targetStory) {
+                                                try {
 							const {twineElectron} = window as TwineElectronWindow;
 							if (twineElectron) {
 								// Get the story folder path

@@ -1,4 +1,4 @@
-import {fakeStory} from '../../../../test-util';
+import {fakePassage, fakeStory} from '../../../../test-util';
 import {StoriesDispatch, StoriesState, Story} from '../../stories.types';
 import {createNewlyLinkedPassages} from '../create-newly-linked-passages';
 
@@ -15,7 +15,7 @@ describe('createNewlyLinkedPassages action creator', () => {
 		getState = () => [story];
 	});
 
-	describe('The thunk it returns', () => {
+        describe('The thunk it returns', () => {
 		it('returns a createPassages action to create all passages', () => {
 			story.passages[0].text = '';
 			createNewlyLinkedPassages(
@@ -70,14 +70,101 @@ describe('createNewlyLinkedPassages action creator', () => {
 			expect(dispatchMock.mock.calls).toEqual([]);
 		});
 
-		it("throws an error if the passage doesn't belong to the story", () =>
-			expect(() =>
-				createNewlyLinkedPassages(
-					story,
-					{...story.passages[0], id: 'nonexistent'},
-					story.passages[0].text,
-					story.passages[0].text
-				)(dispatch, getState)
-			).toThrow());
-	});
+                it("throws an error if the passage doesn't belong to the story", () =>
+                        expect(() =>
+                                createNewlyLinkedPassages(
+                                        story,
+                                        {...story.passages[0], id: 'nonexistent'},
+                                        story.passages[0].text,
+                                        story.passages[0].text
+                                )(dispatch, getState)
+                        ).toThrow());
+
+                it('creates backlinks inside dialog stories when linking to a dialog summary', () => {
+                        const dialogStory = fakeStory(1);
+                        dialogStory.partName = 'Dialog Part';
+                        dialogStory.startPassage = dialogStory.passages[0].id;
+
+                        const dialogSummary = fakePassage({
+                                dialogStoryIfid: dialogStory.ifid,
+                                isDialog: true,
+                                name: 'Dialog Summary',
+                                story: story.id,
+                                text: ''
+                        });
+                        story.passages.push(dialogSummary);
+
+                        const updatedText = `[[${dialogSummary.name}]]`;
+
+                        getState = () => [story, dialogStory];
+
+                        createNewlyLinkedPassages(
+                                story,
+                                story.passages[0],
+                                updatedText,
+                                ''
+                        )(dispatch, getState);
+
+                        expect(dispatchMock).toHaveBeenCalledWith({
+                                type: 'createPassages',
+                                storyId: dialogStory.id,
+                                props: [
+                                        expect.objectContaining({
+                                                name: `\u2190 ${story.name}:${story.passages[0].name}`,
+                                                tags: expect.arrayContaining([
+                                                        'backlink',
+                                                        `source-story-ifid:${story.ifid}`,
+                                                        `target-story-ifid:${dialogStory.ifid}`
+                                                ]),
+                                                text: expect.stringContaining(story.passages[0].name)
+                                        })
+                                ]
+                        });
+                });
+
+                it('mirrors outgoing links from dialog summaries as interlinks', () => {
+                        const dialogStory = fakeStory(1);
+                        dialogStory.partName = 'Dialog Part';
+                        dialogStory.startPassage = dialogStory.passages[0].id;
+
+                        const dialogSummary = fakePassage({
+                                dialogStoryIfid: dialogStory.ifid,
+                                isDialog: true,
+                                name: 'Dialog Summary',
+                                story: story.id,
+                                text: ''
+                        });
+                        const targetPassage = fakePassage({
+                                name: 'Target',
+                                story: story.id,
+                                text: ''
+                        });
+                        story.passages.push(dialogSummary, targetPassage);
+
+                        getState = () => [story, dialogStory];
+
+                        createNewlyLinkedPassages(
+                                story,
+                                dialogSummary,
+                                '[[Target]]',
+                                ''
+                        )(dispatch, getState);
+
+                        expect(dispatchMock).toHaveBeenCalledWith({
+                                type: 'createPassages',
+                                storyId: dialogStory.id,
+                                props: [
+                                        expect.objectContaining({
+                                                name: `\u2192 ${story.name}:${targetPassage.name}`,
+                                                tags: expect.arrayContaining([
+                                                        'interlink',
+                                                        `source-story-ifid:${dialogStory.ifid}`,
+                                                        `target-passage-name:${targetPassage.name}`
+                                                ]),
+                                                text: ''
+                                        })
+                                ]
+                        });
+                });
+        });
 });
