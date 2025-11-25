@@ -65,18 +65,22 @@ export const InnerStoryEditRoute: React.FC = () => {
 		}
 	}, [dispatch, story.id, story.name, story.storyFolderName]);
 
-	const storyParts = React.useMemo(() => {
-		const partsInFolder = stories.filter(s => {
-			const currentFolder = s.storyFolderName || s.name;
-			return currentFolder === folderName;
-		});
+        const partsInFolder = React.useMemo(
+                () =>
+                        stories.filter(storyPart => {
+                                const currentFolder = storyPart.storyFolderName || storyPart.name;
+                                return currentFolder === folderName;
+                        }),
+                [stories, folderName]
+        );
 
-		if (openTabIfids.length === 0) {
-			return partsInFolder;
-		}
+        const storyParts = React.useMemo(() => {
+                if (openTabIfids.length === 0) {
+                        return partsInFolder;
+                }
 
-		return partsInFolder.filter(part => openTabIfids.includes(part.ifid));
-	}, [stories, folderName, openTabIfids]);
+                return partsInFolder.filter(part => openTabIfids.includes(part.ifid));
+        }, [partsInFolder, openTabIfids]);
 
 	// Get the currently active story part
 	const activeStory = React.useMemo(() => {
@@ -244,14 +248,21 @@ export const InnerStoryEditRoute: React.FC = () => {
 	);
 
 	const {getCenter, setCenter} = useViewCenter(activeStory, mainContent);
-	const {
-		handleDeselectPassage,
-		handleDragPassages,
-		handleEditPassage,
-		handleResizePassage,
-		handleSelectPassage,
-		handleSelectRect
-	} = usePassageChangeHandlers(activeStory);
+        const {
+                handleDeselectPassage,
+                handleDragPassages,
+                handleEditPassage,
+                handleResizePassage,
+                handleSelectPassage,
+                handleSelectRect
+        } = usePassageChangeHandlers(activeStory);
+        const latestHandleSelectPassage = React.useRef(handleSelectPassage);
+        const latestHandleEditPassage = React.useRef(handleEditPassage);
+
+        React.useEffect(() => {
+                latestHandleSelectPassage.current = handleSelectPassage;
+                latestHandleEditPassage.current = handleEditPassage;
+        }, [handleEditPassage, handleSelectPassage]);
 
 	const visibleZoom = useZoomTransition(activeStory.zoom, mainContent.current);
 
@@ -300,11 +311,11 @@ export const InnerStoryEditRoute: React.FC = () => {
 
                                         // Try to find by ID first in storyParts
                                         targetStory =
-                                                storyParts.find(p => p.id === targetPartId) ||
-                                                storyParts.find(
+                                                partsInFolder.find(p => p.id === targetPartId) ||
+                                                partsInFolder.find(
                                                         p => p.ifid && p.ifid.toLowerCase() === targetLower
                                                 ) ||
-                                                storyParts.find(
+                                                partsInFolder.find(
                                                         p =>
                                                                 (p.partName || p.name).toLowerCase() ===
                                                                 targetLower
@@ -438,45 +449,55 @@ export const InnerStoryEditRoute: React.FC = () => {
 						const targetPassage = targetStory.passages.find(
 							p => p.id === targetPassageId
 						);
-						if (targetPassage) {
-							setTimeout(() => {
-								// Center and select/highlight
-								setCenter(targetPassage);
-								handleSelectPassage(targetPassage, true);
-								if (options.openEditor) {
-									handleEditPassage(targetPassage);
-								}
-							}, 0);
-						}
-					} else if (options.fallbackPassageName) {
+                                                if (targetPassage) {
+                                                        setTimeout(() => {
+                                                                // Center and select/highlight
+                                                                setCenter(targetPassage);
+                                                                latestHandleSelectPassage.current(
+                                                                        targetPassage,
+                                                                        true
+                                                                );
+                                                                if (options.openEditor) {
+                                                                        latestHandleEditPassage.current(
+                                                                                targetPassage
+                                                                        );
+                                                                }
+                                                        }, 0);
+                                                }
+                                        } else if (options.fallbackPassageName) {
 						// Try to resolve by name if id was not supplied
 						const lower = options.fallbackPassageName.toLowerCase();
 						const targetPassage = targetStory.passages.find(
 							p => p.name.toLowerCase() === lower
 						);
-						if (targetPassage) {
-							setTimeout(() => {
-								setCenter(targetPassage);
-								handleSelectPassage(targetPassage, true);
-								if (options.openEditor) {
-									handleEditPassage(targetPassage);
-								}
-							}, 0);
-						}
-					}
-				}
-			}
-		);
+                                                if (targetPassage) {
+                                                        setTimeout(() => {
+                                                                setCenter(targetPassage);
+                                                                latestHandleSelectPassage.current(
+                                                                        targetPassage,
+                                                                        true
+                                                                );
+                                                                if (options.openEditor) {
+                                                                        latestHandleEditPassage.current(
+                                                                                targetPassage
+                                                                        );
+                                                                }
+                                                        }, 0);
+                                                }
+                                        }
+                                }
+                        }
+                );
 
-		return unsubscribe;
-	}, [
-		activePartIfid,
-		storyParts,
-		setCenter,
-		handleSelectPassage,
-		handleEditPassage,
-		story,
-		dispatch,
+                return unsubscribe;
+        }, [
+                activePartIfid,
+                partsInFolder,
+                setCenter,
+                handleSelectPassage,
+                handleEditPassage,
+                story,
+                dispatch,
 		openTabIfids
 	]);
 
