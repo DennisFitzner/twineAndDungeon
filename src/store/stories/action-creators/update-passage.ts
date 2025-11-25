@@ -4,6 +4,7 @@ import {storyWithId} from '../getters';
 import {Passage, StoriesAction, StoriesState, Story} from '../stories.types';
 import {createNewlyLinkedPassages} from './create-newly-linked-passages';
 import {deleteOrphanedPassages} from './delete-orphaned-passages';
+import {updateStory} from './update-story';
 
 export interface UpdatePassageOptions {
 	dontUpdateOthers?: boolean;
@@ -59,8 +60,8 @@ export function updatePassage(
 			);
 		}
 
-		if (props.name) {
-			const oldNameEscaped = escapeRegExp(oldName);
+                if (props.name) {
+                        const oldNameEscaped = escapeRegExp(oldName);
 
 			// We only need to escape $ stuff in the new name, because it will be the
 			// second argument to replace(). This is a little mindbending, but the
@@ -81,13 +82,13 @@ export function updatePassage(
 				'g'
 			);
 
-			story.passages.forEach(relinkedPassage => {
-				if (
-					simpleLinkRegexp.test(relinkedPassage.text) ||
-					compoundLinkRegexp.test(relinkedPassage.text) ||
-					reverseLinkRegexp.test(relinkedPassage.text)
-				) {
-					let newText = relinkedPassage.text;
+                                story.passages.forEach(relinkedPassage => {
+                                        if (
+                                                simpleLinkRegexp.test(relinkedPassage.text) ||
+                                                compoundLinkRegexp.test(relinkedPassage.text) ||
+                                                reverseLinkRegexp.test(relinkedPassage.text)
+                                        ) {
+                                                let newText = relinkedPassage.text;
 
 					newText = newText.replace(
 						simpleLinkRegexp,
@@ -102,14 +103,32 @@ export function updatePassage(
 						'[[' + newNameEscaped + '$1$2]]'
 					);
 
-					updatePassage(
-						story,
-						relinkedPassage,
-						{text: newText},
-						options
-					)(dispatch, getState);
-				}
-			});
-		}
-	};
+                                                updatePassage(
+                                                        story,
+                                                        relinkedPassage,
+                                                        {text: newText},
+                                                        options
+                                                )(dispatch, getState);
+                                        }
+                                });
+
+                        if (passage.isDialog && passage.dialogStoryIfid) {
+                                const dialogStory = getState().find(
+                                        candidate => candidate.ifid === passage.dialogStoryIfid
+                                );
+
+                                if (dialogStory) {
+                                        const dialogNamePrefix =
+                                                dialogStory.storyFolderName || story.storyFolderName || story.name;
+
+                                        dispatch(
+                                                updateStory(getState(), dialogStory, {
+                                                        partName: props.name,
+                                                        name: `${dialogNamePrefix}:${props.name}`
+                                                })
+                                        );
+                                }
+                        }
+                }
+        };
 }

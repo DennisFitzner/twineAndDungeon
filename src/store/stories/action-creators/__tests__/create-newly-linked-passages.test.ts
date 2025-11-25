@@ -166,5 +166,56 @@ describe('createNewlyLinkedPassages action creator', () => {
                                 ]
                         });
                 });
+
+                it('creates a new passage and interlink when dialog summaries link to new passages', () => {
+                        const dialogStory = fakeStory(1);
+                        dialogStory.partName = 'Dialog Part';
+                        dialogStory.startPassage = dialogStory.passages[0].id;
+
+                        story.name = 'MainStory';
+                        story.partName = 'MainStory';
+
+                        const dialogSummary = fakePassage({
+                                dialogStoryIfid: dialogStory.ifid,
+                                isDialog: true,
+                                name: 'Dialog Summary',
+                                story: story.id,
+                                text: ''
+                        });
+                        story.passages.push(dialogSummary);
+
+                        getState = () => [story, dialogStory];
+
+                        createNewlyLinkedPassages(
+                                story,
+                                dialogSummary,
+                                '[[New Note]]',
+                                ''
+                        )(dispatch, getState);
+
+                        expect(dispatchMock.mock.calls[0][0]).toEqual(
+                                expect.objectContaining({
+                                        type: 'createPassages',
+                                        storyId: story.id
+                                })
+                        );
+                        expect(dispatchMock.mock.calls[0][0].props[0]).toEqual(
+                                expect.objectContaining({name: 'New Note'})
+                        );
+                        expect(dispatchMock.mock.calls[0][0].props[0]).not.toHaveProperty('text');
+
+                        expect(dispatchMock.mock.calls[1][0]).toEqual(
+                                expect.objectContaining({
+                                        type: 'createPassages',
+                                        storyId: dialogStory.id
+                                })
+                        );
+                        expect(dispatchMock.mock.calls[1][0].props[0]).toEqual(
+                                expect.objectContaining({
+                                        name: '→ MainStory:New Note',
+                                        text: ''
+                                })
+                        );
+                });
         });
 });

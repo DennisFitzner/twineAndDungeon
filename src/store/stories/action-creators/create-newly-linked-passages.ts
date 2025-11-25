@@ -196,6 +196,11 @@ export function createNewlyLinkedPassages(
                                                 targetStory?.partName || targetStory?.name || targetStoryIdentifier;
                                 }
 
+                                if (!targetStory) {
+                                        targetStory = story;
+                                        targetStoryIdentifier = story.partName || story.name;
+                                }
+
                                 const interlinkName = targetStoryIdentifier
                                         ? `\u2192 ${targetStoryIdentifier}:${targetPassageName}`
                                         : `\u2192 ${targetPassageName}`;
@@ -294,10 +299,13 @@ export function createNewlyLinkedPassages(
                                                                         item.targetStory, // Pass target story name
                                                                         item.targetPassage // Pass target passage name
                                                           )
-                                                        : [],
-                                                // Add explicit empty text for interlink cards to prevent them from being parsed as links
-                                                text: item.isInterlink ? '' : undefined
-                                        };
+                                                        : []
+                                        } as Partial<Passage>;
+
+                                        if (item.isInterlink) {
+                                                // Prevent interlink cards from being parsed as links
+                                                result.text = '';
+                                        }
 
                                         left += passageDefs.width + passageGap;
                                         return result;
