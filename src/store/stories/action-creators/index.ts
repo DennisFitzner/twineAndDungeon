@@ -2,6 +2,7 @@ export * from './create-newly-linked-passages';
 export * from './create-story';
 export * from './create-untitled-passage';
 export * from './create-untitled-passage-with-edit';
+export * from './create-dialog';
 export * from './delete-passage';
 export * from './delete-story';
 export * from './duplicate-story';

@@ -3,24 +3,33 @@ import {updatePassage} from '../update-passage';
 import {fakeStory} from '../../../../test-util';
 import {createNewlyLinkedPassages} from '../create-newly-linked-passages';
 import {deleteOrphanedPassages} from '../delete-orphaned-passages';
+import {updateStory} from '../update-story';
 
 jest.mock('../create-newly-linked-passages');
 jest.mock('../delete-orphaned-passages');
+jest.mock('../update-story');
 
 describe('updatePassage action creator', () => {
-	const createNewlyLinkedPassagesMock = createNewlyLinkedPassages as jest.Mock;
-	const deleteOrphanedPassagesMock = deleteOrphanedPassages as jest.Mock;
-	let dispatch: StoriesDispatch;
-	let dispatchMock: jest.Mock;
-	let getState: () => StoriesState;
-	let story: Story;
+        const createNewlyLinkedPassagesMock = createNewlyLinkedPassages as jest.Mock;
+        const deleteOrphanedPassagesMock = deleteOrphanedPassages as jest.Mock;
+        const updateStoryMock = updateStory as jest.Mock;
+        let dispatch: StoriesDispatch;
+        let dispatchMock: jest.Mock;
+        let getState: () => StoriesState;
+        let story: Story;
 
-	beforeEach(() => {
-		dispatch = jest.fn();
-		dispatchMock = dispatch as jest.Mock;
-		story = fakeStory(1);
-		getState = jest.fn(() => [story]);
-	});
+        beforeEach(() => {
+                dispatch = jest.fn();
+                dispatchMock = dispatch as jest.Mock;
+                story = fakeStory(1);
+                getState = jest.fn(() => [story]);
+
+                updateStoryMock.mockImplementation((stories, targetStory, props) => ({
+                        type: 'updateStory',
+                        storyId: targetStory.id,
+                        props
+                }));
+        });
 
 	describe('The thunk it returns', () => {
 		it('calls dispatch with an updatePassage action type', () => {
@@ -162,6 +171,48 @@ describe('updatePassage action creator', () => {
 			]);
 		});
 
+                it('renames the dialog story part when a dialog summary is renamed', () => {
+                        const dialogStory = fakeStory(1);
+                        dialogStory.ifid = 'dialog-ifid';
+                        dialogStory.storyFolderName = 'ParentStory';
+
+                        const dialogPassage = {
+                                ...story.passages[0],
+                                dialogStoryIfid: dialogStory.ifid,
+                                isDialog: true
+                        };
+
+                        getState = jest.fn(() => [story, dialogStory]);
+
+                        updatePassage(
+                                story,
+                                dialogPassage,
+                                {name: 'Renamed Dialog'},
+                                {dontUpdateOthers: true}
+                        )(dispatch, getState);
+
+                        expect(dispatchMock.mock.calls).toEqual(
+                                expect.arrayContaining([
+                                        [
+                                                expect.objectContaining({
+                                                        type: 'updatePassage',
+                                                        props: {name: 'Renamed Dialog'}
+                                                })
+                                        ],
+                                        [
+                                                {
+                                                        type: 'updateStory',
+                                                        storyId: dialogStory.id,
+                                                        props: {
+                                                                partName: 'Renamed Dialog',
+                                                                name: 'ParentStory:Renamed Dialog'
+                                                        }
+                                                }
+                                        ]
+                                ])
+                        );
+                });
+
 		it("throws an error if the passage doesn't belong to the story", () =>
 			expect(() =>
 				updatePassage(
@@ -224,15 +275,15 @@ describe('updatePassage action creator', () => {
 		it('calls createNewlyLinkedPassages with the most recent state when text is changed', () => {
 			const oldText = story.passages[0].text;
 
-			updatePassage(story, story.passages[0], {text: 'new text'})(
-				dispatch,
-				getState
-			);
-			expect(getState).toBeCalledTimes(1);
-			expect(createNewlyLinkedPassagesMock.mock.calls).toEqual([
-				[story, story.passages[0], 'new text', oldText]
-			]);
-		});
+                        updatePassage(story, story.passages[0], {text: 'new text'})(
+                                dispatch,
+                                getState
+                        );
+                        expect(getState).toBeCalledTimes(2);
+                        expect(createNewlyLinkedPassagesMock.mock.calls[0]).toEqual(
+                                expect.arrayContaining([story, story.passages[0], 'new text', oldText])
+                        );
+                });
 
 		it("doesn't call createNewlyLinkedPassages if text isn't being changed", () => {
 			updatePassage(story, story.passages[0], {name: 'new name'})(

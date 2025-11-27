@@ -157,10 +157,10 @@ describe('reverseAction', () => {
 		});
 	});
 
-	describe('when passed an updateStory action', () => {
-		it('returns an updateStory action reversing the change, for only the properties being updated', () => {
-			const oldZoom = story.zoom;
-			const oldName = story.name;
+        describe('when passed an updateStory action', () => {
+                it('returns an updateStory action reversing the change, for only the properties being updated', () => {
+                        const oldZoom = story.zoom;
+                        const oldName = story.name;
 
 			expect(
 				reverseAction(
@@ -177,15 +177,43 @@ describe('reverseAction', () => {
 					name: oldName,
 					zoom: oldZoom
 				},
-				storyId: story.id
-			});
-		});
-	});
+                                storyId: story.id
+                        });
+                });
+        });
 
-	describe("when passed an action it doesn't know how to reverse", () => {
-		it('throws an error', () =>
-			expect(() =>
-				reverseAction({type: 'init', state: []}, [story])
+        describe('when passed a createStory action', () => {
+                it('returns a deleteStory action', () => {
+                        expect(
+                                reverseAction(
+                                        {
+                                                type: 'createStory',
+                                                props: {id: 'new-story-id', name: 'Dialog:1'}
+                                        },
+                                        [story]
+                                )
+                        ).toEqual({type: 'deleteStory', storyId: 'new-story-id'});
+                });
+        });
+
+        describe('when passed a deleteStory action', () => {
+                it('returns a createStory action with the previous story', () => {
+                        expect(
+                                reverseAction(
+                                        {
+                                                type: 'deleteStory',
+                                                storyId: story.id
+                                        },
+                                        [story]
+                                )
+                        ).toEqual({type: 'createStory', props: story});
+                });
+        });
+
+        describe("when passed an action it doesn't know how to reverse", () => {
+                it('throws an error', () =>
+                        expect(() =>
+                                reverseAction({type: 'init', state: []}, [story])
 			).toThrow());
 	});
 });

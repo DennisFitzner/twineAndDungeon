@@ -12,6 +12,7 @@ import {CreatePassageButton} from './create-passage-button';
 import {DeletePassagesButton} from './delete-passages-button';
 import {EditPassagesButton} from './edit-passages-buttons';
 import {GoToPassageButton} from './go-to-passage-button';
+import {CreateDialogButton} from './create-dialog-button';
 import {SelectAllPassagesButton} from './select-all-passages-button';
 import {DeselectAllPassagesButton} from './deselect-all-passages-button';
 import {StartAtPassageButton} from './start-at-passage-button';
@@ -48,12 +49,13 @@ export const PassageActions: React.FC<PassageActionsProps> = props => {
 		dispatch(updatePassage(story, passage, {name}, {dontUpdateOthers: true}));
 	}
 
-	return (
-		<ButtonBar>
-			<CreatePassageButton getCenter={getCenter} story={story} />
-			<EditPassagesButton passages={selectedPassages} story={story} />
-			<RenamePassageButton
-				onRename={name => handleRename(name, soloSelectedPassage)}
+        return (
+                <ButtonBar>
+                        <CreatePassageButton getCenter={getCenter} story={story} />
+                        <CreateDialogButton getCenter={getCenter} story={story} />
+                        <EditPassagesButton passages={selectedPassages} story={story} />
+                        <RenamePassageButton
+                                onRename={name => handleRename(name, soloSelectedPassage)}
 				passage={soloSelectedPassage}
 				story={story}
 			/>

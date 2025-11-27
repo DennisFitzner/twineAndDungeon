@@ -3,6 +3,7 @@ import {deviceType} from 'detect-it';
 import * as React from 'react';
 import {DraggableCoreProps} from 'react-draggable';
 import {useTranslation} from 'react-i18next';
+import {useHotkeys} from 'react-hotkeys-hook';
 import {CardContent} from '../container/card';
 import {SelectableCard} from '../container/card/selectable-card';
 import {Character, Passage, TagColors, Story} from '../../store/stories';
@@ -478,11 +479,11 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 
 		return {amount: 20, unit: 'px'};
 	}, [prefs.characterIconSize]);
-	const style = React.useMemo<React.CSSProperties>(
-		() => ({
-			height: appliedSize.height,
-			left: passage.left,
-			top: passage.top,
+        const style = React.useMemo<React.CSSProperties>(
+                () => ({
+                        height: appliedSize.height,
+                        left: passage.left,
+                        top: passage.top,
 			width: appliedSize.width,
 			...characterBorderStyle,
 			'--character-icon-size': `${Math.max(
@@ -496,16 +497,38 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 			passage.left,
 			passage.top,
 			characterBorderStyle,
-			characterIconSizePref.amount,
-			characterIconSizePref.unit
-		]
-	);
-	const handleMouseDown = React.useCallback(
-		(event: MouseEvent) => {
-			// Shift- or control-clicking toggles our selected status, but doesn't
-			// affect any other passage's selected status. If the shift or control key
-			// was not held down and we were not already selected, we know the user
-			// wants to select only this passage.
+                        characterIconSizePref.amount,
+                        characterIconSizePref.unit
+                ]
+        );
+        const [dialogNavShortcutActive, setDialogNavShortcutActive] = React.useState(false);
+
+        useHotkeys(
+                'meta,ctrl',
+                event => {
+                        setDialogNavShortcutActive(event.type === 'keydown');
+                },
+                {keyup: true}
+        );
+        const handleMouseDown = React.useCallback(
+                (event: MouseEvent) => {
+                        if (
+                                passage.isDialog &&
+                                passage.dialogStoryIfid &&
+                                (dialogNavShortcutActive || event.metaKey || event.ctrlKey)
+                        ) {
+                                emitNavigateTo(passage.dialogStoryIfid, undefined, {
+                                        openEditor: false,
+                                        fallbackPassageName: passage.name
+                                });
+                                event.preventDefault();
+                                return;
+                        }
+
+                        // Shift- or control-clicking toggles our selected status, but doesn't
+                        // affect any other passage's selected status. If the shift or control key
+                        // was not held down and we were not already selected, we know the user
+                        // wants to select only this passage.
 
 			if (event.shiftKey || event.ctrlKey) {
 				if (passage.selected) {
@@ -514,11 +537,11 @@ export const PassageCard: React.FC<PassageCardProps> = React.memo(props => {
 					onSelect(passage, false);
 				}
 			} else if (!passage.selected) {
-				onSelect(passage, true);
-			}
-		},
-		[onDeselect, onSelect, passage]
-	);
+                                onSelect(passage, true);
+                        }
+                },
+                [dialogNavShortcutActive, onDeselect, onSelect, passage]
+        );
 	const handleEdit = React.useCallback(() => {
 		// For interlink passages, navigate to the correct tab instead of editing
 		if (isInterlink) {

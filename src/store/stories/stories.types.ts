@@ -38,14 +38,22 @@ export interface Passage {
 	 * Passage tags.
 	 */
 	tags: string[];
-	/**
-	 * Body text of the passage.
-	 */
-	text: string;
-	/**
-	 * Top (e.g. Y) position of the top-left corner of the passage in pixels.
-	 */
-	top: number;
+        /**
+         * Body text of the passage.
+         */
+        text: string;
+        /**
+         * Whether this passage represents a dialog summary instead of a normal passage.
+         */
+        isDialog?: boolean;
+        /**
+         * IFID of the story part that holds the dialog content.
+         */
+        dialogStoryIfid?: string;
+        /**
+         * Top (e.g. Y) position of the top-left corner of the passage in pixels.
+         */
+        top: number;
 	/**
 	 * Width of the passage in pixels.
 	 */
